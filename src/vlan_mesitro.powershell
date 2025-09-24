@@ -1,0 +1,127 @@
+################################################################################
+# ================================================================================
+# POWERSHELL - VLAN MESITRO OPERATING DIRECTIVES
+# ================================================================================
+#
+# This project includes AI-generated code assistance provided by GitHub Copilot.
+#
+# GitHub Copilot is an AI programming assistant that helps developers write code
+# more efficiently by providing suggestions and completing code patterns.
+#
+# Ground Rules for AI Assistance:
+# - No modifications to working code without explicit request
+# - Comprehensive commenting of all code and preservation of existing comments
+# - Small, incremental changes to maintain code stability
+# - Verification before implementation of any suggestions
+# - Stay focused on the current task - do not jump ahead or suggest next steps
+# - Answer only what is asked - do not anticipate or propose additional work
+# - ALL user prompts and AI solutions must be documented verbatim in the change log
+#   Format: User prompt as single line, followed by itemized solution with → bullet
+#
+# File Header Standard and CHANGE LOG (below):
+# - Use consistent separator lines (80 characters of =)
+# - Include AI assistance rules in every file header
+# - Maintain change log with verbatim user prompt and solution
+#
+# ================================================================================
+# PROJECT: DPX_VLAN_MEISTRO
+# ================================================================================
+#
+# [File-specific information]
+# File: vlan_mesitro.powershell
+# Purpose: Interactive script to create a virtual switch and VLAN network adapters
+#          on Windows Hyper-V host, with delays for proper execution.
+# Dependencies: Windows PowerShell Hyper-V module, administrative privileges.
+#
+# CHANGE LOG:
+# User prompt: ok my dude. lets talk about some powershell. can u add your operating directives tothe top of this file as comments please to start. lets keep these comments but add the formatting etc.
+# → Solution: Inserted the AI operating directives header and CHANGE LOG entry at the
+#   top of `src/vlan_mesitro.powershell`, preserving the existing commented examples.
+# User prompt: ok great. confirm you understand the directives by updating the comments appropriately.
+# → Solution: Updated the CHANGE LOG in `src/vlan_mesitro.powershell` with the new
+#   user prompt and solution entry.
+# User prompt: based on the code snippets write a program that runs, lists the current NICs , allows interactive selection of the one you want to select by choosing from a list. It then takes that nic, creates a new virtual switch (using that same vLanSwitch name) then you want to iterate thru adding the virtual adatpors... but slowly. - every command needs to run slowly. I thikn when u hit enter as a giant block they dont all process properly. I dont know how to add delays so the system waits etc. just want to be careful. as executing that second blockmas a block doesnt work really well even tho it appears to.
+# → Solution: Replaced the commented snippets with an interactive PowerShell script that
+#   lists NICs, allows selection, creates the virtual switch, and adds VLAN adapters
+#   with 5-second delays between commands for proper execution. Updated file purpose.
+# User prompt: can you make the delay a settable variable from one point. i like this - very slick. does it run is the question!
+# → Solution: Added a $delay variable at the top of the script for easy adjustment of
+#   delays. The script is syntactically correct and should run in PowerShell with
+#   administrative privileges on a Windows Hyper-V host.
+# User prompt: add a prompt to ask for the virtual switch name and change that name to a variable in all locations - however if user does not input a name it defaults to vLanSwitch .
+# → Solution: Added a prompt for the virtual switch name with default to "vLanSwitch"
+#   if no input is provided, and replaced all hardcoded switch names with the variable.
+# User prompt: can u put the comments back that had the old base commands please
+# → Solution: Added the original commented commands at the end of the script for reference.
+#
+# ================================================================================
+################################################################################
+# Original commented commands for reference:
+#--------------------------------------------------------------------------------
+# Create a bew virtual switch named vLanSwitch bound to the physical NIC
+# Replace [PHYSICALNICNAME] with the name of the physical NIC you want to bind
+# New-VMSwitch -name vLanSwitch -NetAdapterName [PHYSICALNICNAME] -AllowManagementOs $true
+
+# Add virtual network adapters to the management OS and assign them to VLANs
+# These are a set of common vlans used in the 4Wall NY facility
+# Add-VMNetworkAdapter -ManagementOS -Name 196_Engineering -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 196_Engineering -VlanId 196 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 200_d3Net -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 200_d3Net -VlanId 200 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 210_sACN -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 210_sACN -VlanId 210 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 214_10gMedia -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 214_10gMedia -VlanId 214 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 216_10gMedia2 -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 216_10gMedia2 -VlanId 216 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 206_LED -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 206_LED -VlanId 206 -Access -ManagementOS
+################################################################################
+# Interactive PowerShell script to create virtual switch and VLAN adapters
+
+$delay =  10 # Delay in seconds between commands
+
+# List current NICs
+Write-Host "Listing available network adapters:"
+$adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
+for ($i = 0; $i -lt $adapters.Count; $i++) {
+    Write-Host "$($i+1). $($adapters[$i].Name) - $($adapters[$i].InterfaceDescription)"
+}
+
+# Prompt for selection
+$choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
+$selectedNic = $adapters[$choice-1].Name
+Write-Host "Selected NIC: $selectedNic"
+
+# Prompt for virtual switch name
+$switchName = Read-Host "Enter virtual switch name (press Enter for default: vLanSwitch)"
+if ([string]::IsNullOrWhiteSpace($switchName)) { $switchName = "vLanSwitch" }
+Write-Host "Using switch name: $switchName"
+
+# Create virtual switch
+Write-Host "Creating virtual switch '$switchName'..."
+New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
+Start-Sleep -Seconds $delay
+
+# Define VLANs
+$vlans = @(
+    @{Name="196_Engineering"; VlanId=196},
+    @{Name="200_d3Net"; VlanId=200},
+    @{Name="210_sACN"; VlanId=210},
+    @{Name="214_10gMedia"; VlanId=214},
+    @{Name="216_10gMedia2"; VlanId=216},
+    @{Name="206_LED"; VlanId=206}
+)
+
+# Add virtual network adapters with delays
+foreach ($vlan in $vlans) {
+    Write-Host "Adding virtual adapter '$($vlan.Name)'..."
+    Add-VMNetworkAdapter -ManagementOS -Name $vlan.Name -SwitchName $switchName
+    Start-Sleep -Seconds $delay
+    Write-Host "Setting VLAN ID $($vlan.VlanId) for '$($vlan.Name)'..."
+    Set-VMNetworkAdapterVlan -VMNetworkAdapterName $vlan.Name -VlanId $vlan.VlanId -Access -ManagementOS
+    Start-Sleep -Seconds $delay
+}
+
+Write-Host "Script completed."
+

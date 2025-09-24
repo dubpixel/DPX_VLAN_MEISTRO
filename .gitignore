@@ -1,0 +1,40 @@
+### DPX KICAD GIT IGNORE v0.5.4
+# Generic backup files
+*~
+\#*
+.\#*
+
+# Any dir that ends in -old or some that start wit zz
+**/*_old/**
+**/zz_reference/**
+**/ZZ_IGNORE/**
+**/zz_archive/**
+
+# other stuff
+**/.DS_Store
+.DS_Store
+*.gsheet
+
+##########------ KICAD SPECIFIC STUFF ------######
+# KiCad backup files
+*.bak
+*.bck
+*.kicad_pcb-bak
+**/*.kicad_pcb-bak
+**/*-backups/*.zip
+**/*-backups/**
+*-backups/**
+
+# KiCad generated files
+*.erc
+*.net
+*-cache.lib
+*-rescue.lib
+*.lck
+
+# all the footprints cache
+fp-info-cache
+*/fp-info-cache
+
+# kicad local profile
+*.kicad_prl

@@ -53,6 +53,17 @@
 #   if no input is provided, and replaced all hardcoded switch names with the variable.
 # User prompt: can u put the comments back that had the old base commands please
 # → Solution: Added the original commented commands at the end of the script for reference.
+# User prompt: i want to add user prompt at the start of the script to ask what set of vlans to use and we will define some other vlans here shortly. these vlans u have here should be for 4wall - we will have ithers for Aeon Point.
+# → Solution: Added a prompt at the start to select VLAN set (4Wall or Aeon Point), defined
+#   VLAN arrays for each, and set $vlans based on choice. Aeon Point is placeholder.
+# User prompt: [list of Aeon Point commands]
+# → Solution: Extrapolated and populated $vlansAeonPoint array with the VLANs from the
+#   provided commands.
+# User prompt: invalid choice should default to aeon.
+# → Solution: Changed the default VLAN set for invalid choice from 4Wall to Aeon Point.
+# User prompt: [list of Desert VLAN commands]
+# → Solution: Added Desert VLAN set with extrapolated VLANs from the provided commands,
+#   and updated the prompt and selection logic to include option 3 for Desert.
 #
 # ================================================================================
 ################################################################################
@@ -81,6 +92,65 @@
 
 $delay =  10 # Delay in seconds between commands
 
+# Define VLAN sets
+$vlans4Wall = @(
+    @{Name="196_Engineering"; VlanId=196},
+    @{Name="200_d3Net"; VlanId=200},
+    @{Name="210_sACN"; VlanId=210},
+    @{Name="214_10gMedia"; VlanId=214},
+    @{Name="216_10gMedia2"; VlanId=216},
+    @{Name="206_LED"; VlanId=206}
+)
+
+$vlansAeonPoint = @(
+    @{Name="10_Server_A"; VlanId=10},
+    @{Name="20_Server_B"; VlanId=20},
+    @{Name="30_Server_C"; VlanId=30},
+    @{Name="40_Server_D"; VlanId=40},
+    @{Name="50_System"; VlanId=50},
+    @{Name="60_Dante_Primary"; VlanId=60},
+    @{Name="65_Dante_Secondary"; VlanId=65},
+    @{Name="70_KVM"; VlanId=70},
+    @{Name="80_NDI"; VlanId=80},
+    @{Name="90_Internet"; VlanId=90}
+)
+
+$vlansDesert = @(
+    @{Name="101_Server_A"; VlanId=101},
+    @{Name="102_Server_B"; VlanId=102},
+    @{Name="103_Server_C"; VlanId=103},
+    @{Name="104_Server_D"; VlanId=104},
+    @{Name="105_System"; VlanId=105},
+    @{Name="106_Dante_Primary"; VlanId=106},
+    @{Name="116_Dante_Secondary"; VlanId=116},
+    @{Name="107_KVM"; VlanId=107},
+    @{Name="108_NDI"; VlanId=108},
+    @{Name="109_Internet"; VlanId=109},
+    @{Name="110_Omneo"; VlanId=110},
+    @{Name="111_LED"; VlanId=111},
+    @{Name="112_MERGE"; VlanId=112}
+)
+
+# Prompt for VLAN set
+Write-Host "Select VLAN set:"
+Write-Host "1. 4Wall"
+Write-Host "2. Aeon Point"
+Write-Host "3. Desert"
+$vlanChoice = Read-Host "Enter choice (1, 2, or 3)"
+if ($vlanChoice -eq "1") {
+    $vlans = $vlans4Wall
+    Write-Host "Using 4Wall VLAN set."
+} elseif ($vlanChoice -eq "2") {
+    $vlans = $vlansAeonPoint
+    Write-Host "Using Aeon Point VLAN set."
+} elseif ($vlanChoice -eq "3") {
+    $vlans = $vlansDesert
+    Write-Host "Using Desert VLAN set."
+} else {
+    Write-Host "Invalid choice, defaulting to Aeon Point."
+    $vlans = $vlansAeonPoint
+}
+
 # List current NICs
 Write-Host "Listing available network adapters:"
 $adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
@@ -102,16 +172,6 @@ Write-Host "Using switch name: $switchName"
 Write-Host "Creating virtual switch '$switchName'..."
 New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
 Start-Sleep -Seconds $delay
-
-# Define VLANs
-$vlans = @(
-    @{Name="196_Engineering"; VlanId=196},
-    @{Name="200_d3Net"; VlanId=200},
-    @{Name="210_sACN"; VlanId=210},
-    @{Name="214_10gMedia"; VlanId=214},
-    @{Name="216_10gMedia2"; VlanId=216},
-    @{Name="206_LED"; VlanId=206}
-)
 
 # Add virtual network adapters with delays
 foreach ($vlan in $vlans) {

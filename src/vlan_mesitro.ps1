@@ -1,0 +1,244 @@
+################################################################################
+# ================================================================================
+# POWERSHELL - VLAN MESITRO OPERATING DIRECTIVES
+# ================================================================================
+#
+# This project includes AI-generated code assistance provided by GitHub Copilot.
+#
+# GitHub Copilot is an AI programming assistant that helps developers write code
+# more efficiently by providing suggestions and completing code patterns.
+#
+# Ground Rules for AI Assistance:
+# - No modifications to working code without explicit request
+# - Comprehensive commenting of all code and preservation of existing comments
+# - Small, incremental changes to maintain code stability
+# - Verification before implementation of any suggestions
+# - Stay focused on the current task - do not jump ahead or suggest next steps
+# - Answer only what is asked - do not anticipate or propose additional work
+# - ALL user prompts and AI solutions must be documented verbatim in the change log
+#   Format: User prompt as single line, followed by itemized solution with → bullet
+#
+# File Header Standard and CHANGE LOG (below):
+# - Use consistent separator lines (80 characters of =)
+# - Include AI assistance rules in every file header
+# - Maintain change log with verbatim user prompt and solution
+#
+# ================================================================================
+# PROJECT: DPX_VLAN_MEISTRO
+# VERSION: 1.6
+# ================================================================================
+#
+# [File-specific information]
+# File: vlan_mesitro.powershell
+# Purpose: Interactive script to create a virtual switch and VLAN network adapters
+#          on Windows Hyper-V host, with delays for proper execution.
+# Dependencies: Windows PowerShell Hyper-V module, administrative privileges.
+#
+# CHANGE LOG:
+# User prompt: ok my dude. lets talk about some powershell. can u add your operating directives tothe top of this file as comments please to start. lets keep these comments but add the formatting etc.
+# → Solution: Inserted the AI operating directives header and CHANGE LOG entry at the
+#   top of `src/vlan_mesitro.powershell`, preserving the existing commented examples.
+# User prompt: ok great. confirm you understand the directives by updating the comments appropriately.
+# → Solution: Updated the CHANGE LOG in `src/vlan_mesitro.powershell` with the new
+#   user prompt and solution entry.
+# User prompt: based on the code snippets write a program that runs, lists the current NICs , allows interactive selection of the one you want to select by choosing from a list. It then takes that nic, creates a new virtual switch (using that same vLanSwitch name) then you want to iterate thru adding the virtual adatpors... but slowly. - every command needs to run slowly. I thikn when u hit enter as a giant block they dont all process properly. I dont know how to add delays so the system waits etc. just want to be careful. as executing that second blockmas a block doesnt work really well even tho it appears to.
+# → Solution: Replaced the commented snippets with an interactive PowerShell script that
+#   lists NICs, allows selection, creates the virtual switch, and adds VLAN adapters
+#   with 5-second delays between commands for proper execution. Updated file purpose.
+# User prompt: can you make the delay a settable variable from one point. i like this - very slick. does it run is the question!
+# → Solution: Added a $delay variable at the top of the script for easy adjustment of
+#   delays. The script is syntactically correct and should run in PowerShell with
+#   administrative privileges on a Windows Hyper-V host.
+# User prompt: add a prompt to ask for the virtual switch name and change that name to a variable in all locations - however if user does not input a name it defaults to vLanSwitch .
+# → Solution: Added a prompt for the virtual switch name with default to "vLanSwitch"
+#   if no input is provided, and replaced all hardcoded switch names with the variable.
+# User prompt: can u put the comments back that had the old base commands please
+# → Solution: Added the original commented commands at the end of the script for reference.
+# User prompt: i want to add user prompt at the start of the script to ask what set of vlans to use and we will define some other vlans here shortly. these vlans u have here should be for 4wall - we will have ithers for Aeon Point.
+# → Solution: Added a prompt at the start to select VLAN set (4Wall or Aeon Point), defined
+#   VLAN arrays for each, and set $vlans based on choice. Aeon Point is placeholder.
+# User prompt: [list of Aeon Point commands]
+# → Solution: Extrapolated and populated $vlansAeonPoint array with the VLANs from the
+#   provided commands.
+# User prompt: invalid choice should default to aeon.
+# → Solution: Changed the default VLAN set for invalid choice from 4Wall to Aeon Point.
+# User prompt: [list of Desert VLAN commands]
+# → Solution: Added Desert VLAN set with extrapolated VLANs from the provided commands,
+#   and updated the prompt and selection logic to include option 3 for Desert.
+# User prompt: ok this is really nice work so far. can we now add a feature to prompt the user for the 3rd and 4th octets of an IP adress, the 1st octet is 10, the second octet is the same as the vlan id number the program should assume the third octet is 13 if user enters no data for that query the last thing that software shold do after waitnig abnother 10 seconds after the last virtual adaptor is created, is IP the virtual adaptors as ive indicated., do you understand?
+# → Solution: Added prompts for 3rd and 4th IP octets after adapter creation, with 3rd octet
+#   defaulting to 13 if empty. After a 10-second wait, assigned IP addresses to each
+#   virtual adapter in the format 10.<vlan_id>.<3rd_octet>.<4th_octet> with /24 subnet.
+# User prompt: lets also add a version number tag in the comments under project - next to project hit VERSION: etc.
+# → Solution: Added VERSION: 1.0 under the PROJECT line in the file header.
+# User prompt: ok next add -  there should be a mode when you start off - query user - normal mode or IP only mode., no choice assumes normal mode. normal mode only IP's the virtual adaptors - doesnt do any of the creation parts.... first octet is 10, (xcept in desert mode where the first two are 192.168 and the third is equal to vlan - so fix that everywhere) - second octet should be based on their vlan ID that is already set, thid is query based or 13 by default and fourth octet is query based as well (As it was before)
+# → Solution: Added mode selection (Normal or IP only) after VLAN set choice, defaulting to Normal.
+#   Adjusted IP logic: for Desert, use 192.168.<vlan>.<4th>; for others, 10.<vlan>.<3rd>.<4th>
+#   with 3rd defaulting to 13. IP only mode skips creation steps and goes straight to IP assignment.
+#
+# ================================================================================
+################################################################################
+# Original commented commands for reference:
+#--------------------------------------------------------------------------------
+# Create a bew virtual switch named vLanSwitch bound to the physical NIC
+# Replace [PHYSICALNICNAME] with the name of the physical NIC you want to bind
+# New-VMSwitch -name vLanSwitch -NetAdapterName [PHYSICALNICNAME] -AllowManagementOs $true
+
+# Add virtual network adapters to the management OS and assign them to VLANs
+# These are a set of common vlans used in the 4Wall NY facility
+# Add-VMNetworkAdapter -ManagementOS -Name 196_Engineering -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 196_Engineering -VlanId 196 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 200_d3Net -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 200_d3Net -VlanId 200 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 210_sACN -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 210_sACN -VlanId 210 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 214_10gMedia -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 214_10gMedia -VlanId 214 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 216_10gMedia2 -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 216_10gMedia2 -VlanId 216 -Access -ManagementOS
+# Add-VMNetworkAdapter -ManagementOS -Name 206_LED -SwitchName vLanSwitch
+# Set-VMNetworkAdapterVlan -VMNetworkAdapterName 206_LED -VlanId 206 -Access -ManagementOS
+################################################################################
+# Interactive PowerShell script to create virtual switch and VLAN adapters
+
+$delay =  10 # Delay in seconds between commands
+
+# Define VLAN sets
+$vlans4Wall = @(
+    @{Name="196_Engineering"; VlanId=196},
+    @{Name="200_d3Net"; VlanId=200},
+    @{Name="210_sACN"; VlanId=210},
+    @{Name="214_10gMedia"; VlanId=214},
+    @{Name="216_10gMedia2"; VlanId=216},
+    @{Name="206_LED"; VlanId=206}
+)
+
+$vlansAeonPoint = @(
+    @{Name="10_Server_A"; VlanId=10},
+    @{Name="20_Server_B"; VlanId=20},
+    @{Name="30_Server_C"; VlanId=30},
+    @{Name="40_Server_D"; VlanId=40},
+    @{Name="50_System"; VlanId=50},
+    @{Name="60_Dante_Primary"; VlanId=60},
+    @{Name="65_Dante_Secondary"; VlanId=65},
+    @{Name="70_KVM"; VlanId=70},
+    @{Name="80_NDI"; VlanId=80},
+    @{Name="90_Internet"; VlanId=90}
+)
+
+$vlansDesert = @(
+    @{Name="101_Server_A"; VlanId=101},
+    @{Name="102_Server_B"; VlanId=102},
+    @{Name="103_Server_C"; VlanId=103},
+    @{Name="104_Server_D"; VlanId=104},
+    @{Name="105_System"; VlanId=105},
+    @{Name="106_Dante_Primary"; VlanId=106},
+    @{Name="116_Dante_Secondary"; VlanId=116},
+    @{Name="107_KVM"; VlanId=107},
+    @{Name="108_NDI"; VlanId=108},
+    @{Name="109_Internet"; VlanId=109},
+    @{Name="110_Omneo"; VlanId=110},
+    @{Name="111_LED"; VlanId=111},
+    @{Name="112_MERGE"; VlanId=112}
+)
+
+# Prompt for VLAN set
+Write-Host "Select VLAN set:"
+Write-Host "1. 4Wall"
+Write-Host "2. Aeon Point"
+Write-Host "3. Desert"
+$vlanChoice = Read-Host "Enter choice (1, 2, or 3)"
+if ($vlanChoice -eq "1") {
+    $vlans = $vlans4Wall
+    Write-Host "Using 4Wall VLAN set."
+} elseif ($vlanChoice -eq "2") {
+    $vlans = $vlansAeonPoint
+    Write-Host "Using Aeon Point VLAN set."
+} elseif ($vlanChoice -eq "3") {
+    $vlans = $vlansDesert
+    Write-Host "Using Desert VLAN set."
+} else {
+    Write-Host "Invalid choice, defaulting to Aeon Point."
+    $vlans = $vlansAeonPoint
+}
+
+# Determine if Desert
+$isDesert = ($vlanChoice -eq "3")
+
+# Prompt for mode
+Write-Host "Select mode:"
+Write-Host "1. Normal (create switch and adapters, then IP)"
+Write-Host "2. IP only (skip creation, only assign IPs)"
+$modeChoice = Read-Host "Enter choice (1 or 2, press Enter for Normal)"
+if ($modeChoice -eq "2") {
+    $ipOnly = $true
+} else {
+    $ipOnly = $false
+}
+
+if (!$ipOnly) {
+    # List current NICs
+    Write-Host "Listing available network adapters:"
+    $adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
+    for ($i = 0; $i -lt $adapters.Count; $i++) {
+        Write-Host "$($i+1). $($adapters[$i].Name) - $($adapters[$i].InterfaceDescription)"
+    }
+
+    # Prompt for selection
+    $choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
+    $selectedNic = $adapters[$choice-1].Name
+    Write-Host "Selected NIC: $selectedNic"
+
+    # Prompt for virtual switch name
+    $switchName = Read-Host "Enter virtual switch name (press Enter for default: vLanSwitch)"
+    if ([string]::IsNullOrWhiteSpace($switchName)) { $switchName = "vLanSwitch" }
+    Write-Host "Using switch name: $switchName"
+
+    # Create virtual switch
+    Write-Host "Creating virtual switch '$switchName'..."
+    New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
+    Start-Sleep -Seconds $delay
+
+    # Add virtual network adapters with delays
+    foreach ($vlan in $vlans) {
+        Write-Host "Adding virtual adapter '$($vlan.Name)'..."
+        Add-VMNetworkAdapter -ManagementOS -Name $vlan.Name -SwitchName $switchName
+        Start-Sleep -Seconds $delay
+        Write-Host "Setting VLAN ID $($vlan.VlanId) for '$($vlan.Name)'..."
+        Set-VMNetworkAdapterVlan -VMNetworkAdapterName $vlan.Name -VlanId $vlan.VlanId -Access -ManagementOS
+        Start-Sleep -Seconds $delay
+    }
+}
+
+# Prompt for IP octets
+if (!$isDesert) {
+    $thirdOctet = Read-Host "Enter the 3rd octet for IP addresses (press Enter for default: 13)"
+    if ([string]::IsNullOrWhiteSpace($thirdOctet)) { $thirdOctet = "13" }
+}
+$fourthOctet = Read-Host "Enter the 4th octet for IP addresses"
+
+if (!$ipOnly) {
+    # Wait 10 seconds after last adapter creation
+    Start-Sleep -Seconds 10
+}
+
+# Assign IP addresses to virtual adapters
+foreach ($vlan in $vlans) {
+    if ($isDesert) {
+        $ip = "192.168.$($vlan.VlanId).$fourthOctet"
+    } else {
+        $ip = "10.$($vlan.VlanId).$thirdOctet.$fourthOctet"
+    }
+    Write-Host "Setting IP $ip for '$($vlan.Name)'..."
+    $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $vlan.Name }
+    if ($adapter) {
+        # Disable DHCP and set static IP
+        Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled
+        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -IPAddress $ip -PrefixLength 24
+    } else {
+        Write-Host "Warning: Adapter '$($vlan.Name)' not found for IP assignment."
+    }
+}
+
+Write-Host "Script completed."
+

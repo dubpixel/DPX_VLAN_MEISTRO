@@ -25,6 +25,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
+# VERSION: 1.5
 # ================================================================================
 #
 # [File-specific information]
@@ -64,6 +65,12 @@
 # User prompt: [list of Desert VLAN commands]
 # → Solution: Added Desert VLAN set with extrapolated VLANs from the provided commands,
 #   and updated the prompt and selection logic to include option 3 for Desert.
+# User prompt: ok this is really nice work so far. can we now add a feature to prompt the user for the 3rd and 4th octets of an IP adress, the 1st octet is 10, the second octet is the same as the vlan id number the program should assume the third octet is 13 if user enters no data for that query the last thing that software shold do after waitnig abnother 10 seconds after the last virtual adaptor is created, is IP the virtual adaptors as ive indicated., do you understand?
+# → Solution: Added prompts for 3rd and 4th IP octets after adapter creation, with 3rd octet
+#   defaulting to 13 if empty. After a 10-second wait, assigned IP addresses to each
+#   virtual adapter in the format 10.<vlan_id>.<3rd_octet>.<4th_octet> with /24 subnet.
+# User prompt: lets also add a version number tag in the comments under project - next to project hit VERSION: etc.
+# → Solution: Added VERSION: 1.0 under the PROJECT line in the file header.
 #
 # ================================================================================
 ################################################################################
@@ -181,6 +188,28 @@ foreach ($vlan in $vlans) {
     Write-Host "Setting VLAN ID $($vlan.VlanId) for '$($vlan.Name)'..."
     Set-VMNetworkAdapterVlan -VMNetworkAdapterName $vlan.Name -VlanId $vlan.VlanId -Access -ManagementOS
     Start-Sleep -Seconds $delay
+}
+
+# Prompt for IP octets
+$thirdOctet = Read-Host "Enter the 3rd octet for IP addresses (press Enter for default: 13)"
+if ([string]::IsNullOrWhiteSpace($thirdOctet)) { $thirdOctet = "13" }
+$fourthOctet = Read-Host "Enter the 4th octet for IP addresses"
+
+# Wait 10 seconds after last adapter creation
+Start-Sleep -Seconds 10
+
+# Assign IP addresses to virtual adapters
+foreach ($vlan in $vlans) {
+    $ip = "10.$($vlan.VlanId).$thirdOctet.$fourthOctet"
+    Write-Host "Setting IP $ip for '$($vlan.Name)'..."
+    $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $vlan.Name }
+    if ($adapter) {
+        # Disable DHCP and set static IP
+        Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled
+        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -IPAddress $ip -PrefixLength 24
+    } else {
+        Write-Host "Warning: Adapter '$($vlan.Name)' not found for IP assignment."
+    }
 }
 
 Write-Host "Script completed."

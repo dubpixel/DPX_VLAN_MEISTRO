@@ -25,7 +25,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.5
+# VERSION: 1.6
 # ================================================================================
 #
 # [File-specific information]
@@ -71,6 +71,10 @@
 #   virtual adapter in the format 10.<vlan_id>.<3rd_octet>.<4th_octet> with /24 subnet.
 # User prompt: lets also add a version number tag in the comments under project - next to project hit VERSION: etc.
 # → Solution: Added VERSION: 1.0 under the PROJECT line in the file header.
+# User prompt: ok next add -  there should be a mode when you start off - query user - normal mode or IP only mode., no choice assumes normal mode. normal mode only IP's the virtual adaptors - doesnt do any of the creation parts.... first octet is 10, (xcept in desert mode where the first two are 192.168 and the third is equal to vlan - so fix that everywhere) - second octet should be based on their vlan ID that is already set, thid is query based or 13 by default and fourth octet is query based as well (As it was before)
+# → Solution: Added mode selection (Normal or IP only) after VLAN set choice, defaulting to Normal.
+#   Adjusted IP logic: for Desert, use 192.168.<vlan>.<4th>; for others, 10.<vlan>.<3rd>.<4th>
+#   with 3rd defaulting to 13. IP only mode skips creation steps and goes straight to IP assignment.
 #
 # ================================================================================
 ################################################################################
@@ -158,49 +162,73 @@ if ($vlanChoice -eq "1") {
     $vlans = $vlansAeonPoint
 }
 
-# List current NICs
-Write-Host "Listing available network adapters:"
-$adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
-for ($i = 0; $i -lt $adapters.Count; $i++) {
-    Write-Host "$($i+1). $($adapters[$i].Name) - $($adapters[$i].InterfaceDescription)"
+# Determine if Desert
+$isDesert = ($vlanChoice -eq "3")
+
+# Prompt for mode
+Write-Host "Select mode:"
+Write-Host "1. Normal (create switch and adapters, then IP)"
+Write-Host "2. IP only (skip creation, only assign IPs)"
+$modeChoice = Read-Host "Enter choice (1 or 2, press Enter for Normal)"
+if ($modeChoice -eq "2") {
+    $ipOnly = $true
+} else {
+    $ipOnly = $false
 }
 
-# Prompt for selection
-$choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
-$selectedNic = $adapters[$choice-1].Name
-Write-Host "Selected NIC: $selectedNic"
+if (!$ipOnly) {
+    # List current NICs
+    Write-Host "Listing available network adapters:"
+    $adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" }
+    for ($i = 0; $i -lt $adapters.Count; $i++) {
+        Write-Host "$($i+1). $($adapters[$i].Name) - $($adapters[$i].InterfaceDescription)"
+    }
 
-# Prompt for virtual switch name
-$switchName = Read-Host "Enter virtual switch name (press Enter for default: vLanSwitch)"
-if ([string]::IsNullOrWhiteSpace($switchName)) { $switchName = "vLanSwitch" }
-Write-Host "Using switch name: $switchName"
+    # Prompt for selection
+    $choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
+    $selectedNic = $adapters[$choice-1].Name
+    Write-Host "Selected NIC: $selectedNic"
 
-# Create virtual switch
-Write-Host "Creating virtual switch '$switchName'..."
-New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
-Start-Sleep -Seconds $delay
+    # Prompt for virtual switch name
+    $switchName = Read-Host "Enter virtual switch name (press Enter for default: vLanSwitch)"
+    if ([string]::IsNullOrWhiteSpace($switchName)) { $switchName = "vLanSwitch" }
+    Write-Host "Using switch name: $switchName"
 
-# Add virtual network adapters with delays
-foreach ($vlan in $vlans) {
-    Write-Host "Adding virtual adapter '$($vlan.Name)'..."
-    Add-VMNetworkAdapter -ManagementOS -Name $vlan.Name -SwitchName $switchName
+    # Create virtual switch
+    Write-Host "Creating virtual switch '$switchName'..."
+    New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
     Start-Sleep -Seconds $delay
-    Write-Host "Setting VLAN ID $($vlan.VlanId) for '$($vlan.Name)'..."
-    Set-VMNetworkAdapterVlan -VMNetworkAdapterName $vlan.Name -VlanId $vlan.VlanId -Access -ManagementOS
-    Start-Sleep -Seconds $delay
+
+    # Add virtual network adapters with delays
+    foreach ($vlan in $vlans) {
+        Write-Host "Adding virtual adapter '$($vlan.Name)'..."
+        Add-VMNetworkAdapter -ManagementOS -Name $vlan.Name -SwitchName $switchName
+        Start-Sleep -Seconds $delay
+        Write-Host "Setting VLAN ID $($vlan.VlanId) for '$($vlan.Name)'..."
+        Set-VMNetworkAdapterVlan -VMNetworkAdapterName $vlan.Name -VlanId $vlan.VlanId -Access -ManagementOS
+        Start-Sleep -Seconds $delay
+    }
 }
 
 # Prompt for IP octets
-$thirdOctet = Read-Host "Enter the 3rd octet for IP addresses (press Enter for default: 13)"
-if ([string]::IsNullOrWhiteSpace($thirdOctet)) { $thirdOctet = "13" }
+if (!$isDesert) {
+    $thirdOctet = Read-Host "Enter the 3rd octet for IP addresses (press Enter for default: 13)"
+    if ([string]::IsNullOrWhiteSpace($thirdOctet)) { $thirdOctet = "13" }
+}
 $fourthOctet = Read-Host "Enter the 4th octet for IP addresses"
 
-# Wait 10 seconds after last adapter creation
-Start-Sleep -Seconds 10
+if (!$ipOnly) {
+    # Wait 10 seconds after last adapter creation
+    Start-Sleep -Seconds 10
+}
 
 # Assign IP addresses to virtual adapters
 foreach ($vlan in $vlans) {
-    $ip = "10.$($vlan.VlanId).$thirdOctet.$fourthOctet"
+    if ($isDesert) {
+        $ip = "192.168.$($vlan.VlanId).$fourthOctet"
+    } else {
+        $ip = "10.$($vlan.VlanId).$thirdOctet.$fourthOctet"
+    }
     Write-Host "Setting IP $ip for '$($vlan.Name)'..."
     $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $vlan.Name }
     if ($adapter) {

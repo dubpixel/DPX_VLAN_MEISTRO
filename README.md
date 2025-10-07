@@ -97,7 +97,9 @@ a lengthy description about the project that should probably be many lines. this
 
 ### Built With 
  
- * 
+ * PowerShell
+ * Windows Hyper-V
+ * GitHub Copilot (AI-assisted development)
 
 <!--
  * [![KiCad][KiCad.org]][KiCad-url]
@@ -120,19 +122,102 @@ a lengthy description about the project that should probably be many lines. this
 ## Getting Started
 
   ### Prerequisites
-  * 
+  * Windows 10/11 with Hyper-V feature enabled
+  * PowerShell 5.1 or higher
+  * Administrative privileges
+  * At least one physical network adapter
+  * Hyper-V PowerShell module (included with Hyper-V)
+
   ### Installation
 
-  1. 
+  1. Clone the repository
+     ```bash
+     git clone https://github.com/dubpixel/dpx_vlan_meistro.git
+     ```
+  2. Navigate to the PowerShell script directory
+     ```bash
+     cd dpx_vlan_meistro/src
+     ```
+  3. Ensure Hyper-V is enabled in Windows Features
+  4. Run PowerShell as Administrator
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-1. <!-- Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+### Prerequisites
+- Windows 10/11 with Hyper-V enabled
+- PowerShell with administrative privileges
+- Network adapter(s) available for virtual switch creation
 
-_For more examples, please refer to the [Documentation](https://example.com)_-->
+### Running the Script
+
+1. **Open PowerShell as Administrator**
+   ```powershell
+   # Right-click PowerShell and select "Run as Administrator"
+   ```
+
+2. **Navigate to the script directory**
+   ```powershell
+   cd "C:\Path\To\DPX_VLAN_MEISTRO\src"
+   ```
+
+3. **Execute the script**
+   ```powershell
+   .\vlan_mesitro.powershell
+   ```
+
+### Script Workflow
+
+1. **Select VLAN Set**
+   - Choose from: 4Wall, Aeon Point, or Desert
+   - Each set contains predefined VLAN configurations
+
+2. **Select Mode**
+   - **Normal Mode**: Creates virtual switch, adapters, and assigns IPs
+   - **IP Only Mode**: Skips creation, only assigns IP addresses to existing adapters
+
+3. **Normal Mode Steps**
+   - Select physical network adapter from list
+   - Enter virtual switch name (defaults to "vLanSwitch")
+   - Script creates virtual switch and VLAN adapters with delays
+
+4. **IP Configuration**
+   - Enter 4th octet for IP addresses
+   - For non-Desert sets: Enter 3rd octet (defaults to 13)
+   - IP formats:
+     - Desert: `192.168.<vlan_id>.<4th_octet>`
+     - Others: `10.<vlan_id>.<3rd_octet>.<4th_octet>`
+
+5. **Completion**
+   - Script assigns static IPs to all virtual adapters
+   - Displays progress and completion status
+
+### Example Usage
+```
+Select VLAN set:
+1. 4Wall
+2. Aeon Point
+3. Desert
+Enter choice (1, 2, or 3): 2
+
+Select mode:
+1. Normal (create switch and adapters, then IP)
+2. IP only (skip creation, only assign IPs)
+Enter choice (1 or 2, press Enter for Normal): 1
+
+Listing available network adapters:
+1. Ethernet - Intel(R) Ethernet Connection
+Select the NIC by number (1-1): 1
+
+Enter virtual switch name (press Enter for default: vLanSwitch):
+
+Enter the 3rd octet for IP addresses (press Enter for default: 13): 13
+Enter the 4th octet for IP addresses: 100
+```
+
+_For more examples, please refer to the [Documentation](https://example.com)_
 <!-- REFLECTION -->
 ## Reflection
 

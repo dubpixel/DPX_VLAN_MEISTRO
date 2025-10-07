@@ -75,6 +75,9 @@
 # → Solution: Added mode selection (Normal or IP only) after VLAN set choice, defaulting to Normal.
 #   Adjusted IP logic: for Desert, use 192.168.<vlan>.<4th>; for others, 10.<vlan>.<3rd>.<4th>
 #   with 3rd defaulting to 13. IP only mode skips creation steps and goes straight to IP assignment.
+# User prompt: can you add some basic usage instructions into the readme please
+# → Solution: Added comprehensive usage instructions to README.md including prerequisites,
+#   installation steps, script workflow, and example usage. Updated Built With section.
 #
 # ================================================================================
 ################################################################################

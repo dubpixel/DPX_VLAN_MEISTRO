@@ -151,6 +151,32 @@ a lengthy description about the project that should probably be many lines. this
 - PowerShell with administrative privileges
 - Network adapter(s) available for virtual switch creation
 
+### VLAN Configuration
+VLAN sets are defined in `src/vlan_sets.json`. You can add new facility configurations by editing this file:
+
+```json
+{
+  "vlanSets": {
+    "YourNewFacility": {
+      "vlans": [
+        {"Name": "Server_VLAN", "VlanId": 100},
+        {"Name": "Client_VLAN", "VlanId": 200}
+      ],
+      "ipBase": "10.{vlan}.{third}.{fourth}",
+      "ipPrompts": ["third", "fourth"],
+      "ipDefaults": {"third": 10}
+    }
+  }
+}
+```
+
+**IP Configuration Explained:**
+- `ipBase`: Template for IP addresses using placeholders like `{vlan}`, `{third}`, `{fourth}`
+- `ipPrompts`: List of octets the user will be prompted to enter
+- `ipDefaults`: Default values for specific octets (optional)
+
+The script will automatically detect and offer all VLAN sets as options during selection. No code changes required!
+
 ### Running the Script
 
 1. **Open PowerShell as Administrator**
@@ -168,15 +194,19 @@ a lengthy description about the project that should probably be many lines. this
    .\vlan_mesitro.powershell
    ```
 
+   **Note:** The script displays a comprehensive warning message about potential network disruption. Read it carefully before proceeding.
+
 ### Script Workflow
 
 1. **Select VLAN Set**
-   - Choose from: 4Wall, Aeon Point, or Desert
+   - Script automatically loads all available VLAN sets from `vlan_sets.json`
+   - Choose from any configured facility (4Wall, Aeon Point, Desert, or custom sets)
    - Each set contains predefined VLAN configurations
 
 2. **Select Mode**
    - **Normal Mode**: Creates virtual switch, adapters, and assigns IPs
    - **IP Only Mode**: Skips creation, only assigns IP addresses to existing adapters
+   - **Nuke All Mode**: Removes all virtual switches except default/built-in ones (with confirmation)
 
 3. **Normal Mode Steps**
    - Select physical network adapter from list
@@ -184,14 +214,19 @@ a lengthy description about the project that should probably be many lines. this
    - Script creates virtual switch and VLAN adapters with delays
 
 4. **IP Configuration**
+   - Enter 3rd octet for IP addresses (defaults to 13 for non-Desert)
    - Enter 4th octet for IP addresses
-   - For non-Desert sets: Enter 3rd octet (defaults to 13)
    - IP formats:
      - Desert: `192.168.<vlan_id>.<4th_octet>`
      - Others: `10.<vlan_id>.<3rd_octet>.<4th_octet>`
 
-5. **Completion**
-   - Script assigns static IPs to all virtual adapters
+5. **Nuke All Mode**
+   - Removes all user-created virtual switches and their VLAN adapters
+   - Preserves default/built-in switches (like "Default Switch")
+   - Requires explicit confirmation by typing "YES"
+
+6. **Completion**
+   - Script assigns static IPs to all virtual adapters (in Normal/IP-only modes)
    - Displays progress and completion status
 
 ### Example Usage

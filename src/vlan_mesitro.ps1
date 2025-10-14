@@ -25,13 +25,14 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.6
+# VERSION: 1.7
 # ================================================================================
 #
 # [File-specific information]
 # File: vlan_mesitro.powershell
 # Purpose: Interactive script to create a virtual switch and VLAN network adapters
-#          on Windows Hyper-V host, with delays for proper execution.
+#          on Windows Hyper-V host, with cleanup of existing configurations and
+#          robust IP assignment with delays for proper execution.
 # Dependencies: Windows PowerShell Hyper-V module, administrative privileges.
 #
 # CHANGE LOG:
@@ -78,6 +79,18 @@
 # User prompt: can you add some basic usage instructions into the readme please
 # → Solution: Added comprehensive usage instructions to README.md including prerequisites,
 #   installation steps, script workflow, and example usage. Updated Built With section.
+# User prompt: lets move on. i need to add another concept. vlan meistro is to set the vlans of a system to a given way.  Ideally it should remove current settings and make sure that the settings applied are the only settings. also users report that the IP addesses did not get set and they remained at DHCP.
+# → Solution: Added cleanup functionality to remove existing VLAN adapters before creating new ones,
+#   and improved IP assignment with better error handling, existing IP removal, DHCP verification,
+#   retry logic for adapter availability, and success verification. Updated version to 1.7.
+# User prompt: i also think by default the changes need to be scoped to a physical intertface. only removing things set on a given physical interface, if user has selected that ohysical interface for the script to act on.
+# → Solution: Modified cleanup logic to only remove VLAN adapters associated with the selected
+#   virtual switch (scoped to the chosen physical interface), preventing interference with
+#   VLAN configurations on other physical NICs.
+# User prompt: there needs to be someting in the json that tells the software which missing octet to prompt the user for - the first line of the json def should be the base and its like 10.XXX.YYY.ZZZ where XXX is the vlan YY is one possible octet (in this case the third) and ZZZ is the fourth  - but either could be wildcard etc. also could be 1-3 digits 0-255 (ip rules.)
+# → Solution: Restructured JSON to include ipBase template (e.g., "10.{vlan}.{third}.{fourth}"),
+#   ipPrompts array specifying which octets to prompt for, and ipDefaults for default values.
+#   Script now dynamically prompts for required octets and builds IPs using template substitution.
 #
 # ================================================================================
 ################################################################################
@@ -104,79 +117,288 @@
 ################################################################################
 # Interactive PowerShell script to create virtual switch and VLAN adapters
 
+# ASCII Art Title
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                           ██████╗ ██████╗ ██╗  ██╗                        ║" -ForegroundColor Cyan
+Write-Host "║                           ██╔══██╗██╔══██╗╚██╗██╔╝                        ║" -ForegroundColor Cyan
+Write-Host "║                           ██║  ██║██████╔╝ ╚███╔╝                         ║" -ForegroundColor Cyan
+Write-Host "║                           ██║  ██║██╔═══╝  ██╔██╗                         ║" -ForegroundColor Cyan
+Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                        ║" -ForegroundColor Cyan
+Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                        ║" -ForegroundColor Cyan
+Write-Host "║                                                                              ║" -ForegroundColor Cyan
+Write-Host "║                        VLAN MEISTRO v1.7                                    ║" -ForegroundColor Yellow
+Write-Host "║                 Hyper-V Network Configuration Tool                          ║" -ForegroundColor Yellow
+Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
+# Warning Message
+Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+Write-Host "║                              ⚠️  WARNING ⚠️                                ║" -ForegroundColor Red
+Write-Host "║                                                                              ║" -ForegroundColor Red
+Write-Host "║  This tool will MODIFY your network configuration!                           ║" -ForegroundColor Yellow
+Write-Host "║                                                                              ║" -ForegroundColor Red
+Write-Host "║  • Selected network interfaces will have their virtual switches REMOVED     ║" -ForegroundColor White
+Write-Host "║  • All VLAN adapters on those interfaces will be DELETED                     ║" -ForegroundColor White
+Write-Host "║  • New virtual switches and VLAN configurations will be CREATED             ║" -ForegroundColor White
+Write-Host "║  • IP addresses will be reassigned (static, not DHCP)                        ║" -ForegroundColor White
+Write-Host "║                                                                              ║" -ForegroundColor Red
+Write-Host "║  This may DISCONNECT network services temporarily!                           ║" -ForegroundColor Yellow
+Write-Host "║  Ensure you have console/physical access before proceeding.                  ║" -ForegroundColor Yellow
+Write-Host "║                                                                              ║" -ForegroundColor Red
+Write-Host "║  Press Ctrl+C at any time to cancel.                                         ║" -ForegroundColor Green
+Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host ""
+
 $delay =  10 # Delay in seconds between commands
 
-# Define VLAN sets
-$vlans4Wall = @(
-    @{Name="196_Engineering"; VlanId=196},
-    @{Name="200_d3Net"; VlanId=200},
-    @{Name="210_sACN"; VlanId=210},
-    @{Name="214_10gMedia"; VlanId=214},
-    @{Name="216_10gMedia2"; VlanId=216},
-    @{Name="206_LED"; VlanId=206}
-)
-
-$vlansAeonPoint = @(
-    @{Name="10_Server_A"; VlanId=10},
-    @{Name="20_Server_B"; VlanId=20},
-    @{Name="30_Server_C"; VlanId=30},
-    @{Name="40_Server_D"; VlanId=40},
-    @{Name="50_System"; VlanId=50},
-    @{Name="60_Dante_Primary"; VlanId=60},
-    @{Name="65_Dante_Secondary"; VlanId=65},
-    @{Name="70_KVM"; VlanId=70},
-    @{Name="80_NDI"; VlanId=80},
-    @{Name="90_Internet"; VlanId=90}
-)
-
-$vlansDesert = @(
-    @{Name="101_Server_A"; VlanId=101},
-    @{Name="102_Server_B"; VlanId=102},
-    @{Name="103_Server_C"; VlanId=103},
-    @{Name="104_Server_D"; VlanId=104},
-    @{Name="105_System"; VlanId=105},
-    @{Name="106_Dante_Primary"; VlanId=106},
-    @{Name="116_Dante_Secondary"; VlanId=116},
-    @{Name="107_KVM"; VlanId=107},
-    @{Name="108_NDI"; VlanId=108},
-    @{Name="109_Internet"; VlanId=109},
-    @{Name="110_Omneo"; VlanId=110},
-    @{Name="111_LED"; VlanId=111},
-    @{Name="112_MERGE"; VlanId=112}
-)
-
-# Prompt for VLAN set
-Write-Host "Select VLAN set:"
-Write-Host "1. 4Wall"
-Write-Host "2. Aeon Point"
-Write-Host "3. Desert"
-$vlanChoice = Read-Host "Enter choice (1, 2, or 3)"
-if ($vlanChoice -eq "1") {
-    $vlans = $vlans4Wall
-    Write-Host "Using 4Wall VLAN set."
-} elseif ($vlanChoice -eq "2") {
-    $vlans = $vlansAeonPoint
-    Write-Host "Using Aeon Point VLAN set."
-} elseif ($vlanChoice -eq "3") {
-    $vlans = $vlansDesert
-    Write-Host "Using Desert VLAN set."
+# Load VLAN sets from external JSON file
+$vlanConfigPath = Join-Path $PSScriptRoot "vlan_sets.json"
+if (Test-Path $vlanConfigPath) {
+    try {
+        $vlanConfig = Get-Content $vlanConfigPath -Raw | ConvertFrom-Json
+        $vlans4Wall = $vlanConfig.vlanSets."4Wall"
+        $vlansAeonPoint = $vlanConfig.vlanSets.AeonPoint
+        $vlansDesert = $vlanConfig.vlanSets.Desert
+        Write-Host "Loaded VLAN configurations from $vlanConfigPath"
+    }
+    catch {
+        Write-Host "Error loading VLAN configuration file: $($_.Exception.Message)"
+        Write-Host "Falling back to built-in configurations..."
+        # Fallback to hardcoded configurations if JSON fails to load
+        $vlans4Wall = @(
+            @{Name="196_Engineering"; VlanId=196},
+            @{Name="200_d3Net"; VlanId=200},
+            @{Name="210_sACN"; VlanId=210},
+            @{Name="214_10gMedia"; VlanId=214},
+            @{Name="216_10gMedia2"; VlanId=216},
+            @{Name="206_LED"; VlanId=206}
+        )
+        $vlansAeonPoint = @(
+            @{Name="10_Server_A"; VlanId=10},
+            @{Name="20_Server_B"; VlanId=20},
+            @{Name="30_Server_C"; VlanId=30},
+            @{Name="40_Server_D"; VlanId=40},
+            @{Name="50_System"; VlanId=50},
+            @{Name="60_Dante_Primary"; VlanId=60},
+            @{Name="65_Dante_Secondary"; VlanId=65},
+            @{Name="70_KVM"; VlanId=70},
+            @{Name="80_NDI"; VlanId=80},
+            @{Name="90_Internet"; VlanId=90}
+        )
+        $vlansDesert = @(
+            @{Name="101_Server_A"; VlanId=101},
+            @{Name="102_Server_B"; VlanId=102},
+            @{Name="103_Server_C"; VlanId=103},
+            @{Name="104_Server_D"; VlanId=104},
+            @{Name="105_System"; VlanId=105},
+            @{Name="106_Dante_Primary"; VlanId=106},
+            @{Name="116_Dante_Secondary"; VlanId=116},
+            @{Name="107_KVM"; VlanId=107},
+            @{Name="108_NDI"; VlanId=108},
+            @{Name="109_Internet"; VlanId=109},
+            @{Name="110_Omneo"; VlanId=110},
+            @{Name="111_LED"; VlanId=111},
+            @{Name="112_MERGE"; VlanId=112}
+        )
+    }
 } else {
-    Write-Host "Invalid choice, defaulting to Aeon Point."
-    $vlans = $vlansAeonPoint
+    Write-Host "Warning: VLAN configuration file not found at $vlanConfigPath"
+    Write-Host "Using built-in configurations..."
+    # Built-in fallback configurations
+    $vlans4Wall = @(
+        @{Name="196_Engineering"; VlanId=196},
+        @{Name="200_d3Net"; VlanId=200},
+        @{Name="210_sACN"; VlanId=210},
+        @{Name="214_10gMedia"; VlanId=214},
+        @{Name="216_10gMedia2"; VlanId=216},
+        @{Name="206_LED"; VlanId=206}
+    )
+    $vlansAeonPoint = @(
+        @{Name="10_Server_A"; VlanId=10},
+        @{Name="20_Server_B"; VlanId=20},
+        @{Name="30_Server_C"; VlanId=30},
+        @{Name="40_Server_D"; VlanId=40},
+        @{Name="50_System"; VlanId=50},
+        @{Name="60_Dante_Primary"; VlanId=60},
+        @{Name="65_Dante_Secondary"; VlanId=65},
+        @{Name="70_KVM"; VlanId=70},
+        @{Name="80_NDI"; VlanId=80},
+        @{Name="90_Internet"; VlanId=90}
+    )
+    $vlansDesert = @(
+        @{Name="101_Server_A"; VlanId=101},
+        @{Name="102_Server_B"; VlanId=102},
+        @{Name="103_Server_C"; VlanId=103},
+        @{Name="104_Server_D"; VlanId=104},
+        @{Name="105_System"; VlanId=105},
+        @{Name="106_Dante_Primary"; VlanId=106},
+        @{Name="116_Dante_Secondary"; VlanId=116},
+        @{Name="107_KVM"; VlanId=107},
+        @{Name="108_NDI"; VlanId=108},
+        @{Name="109_Internet"; VlanId=109},
+        @{Name="110_Omneo"; VlanId=110},
+        @{Name="111_LED"; VlanId=111},
+        @{Name="112_MERGE"; VlanId=112}
+    )
 }
 
-# Determine if Desert
-$isDesert = ($vlanChoice -eq "3")
+# Build dynamic VLAN set selection
+$vlanSets = @{}
+$vlanSetNames = @()
+
+# Add loaded sets to the dynamic collection
+if ($vlanConfig -and $vlanConfig.vlanSets) {
+    foreach ($setName in $vlanConfig.vlanSets.PSObject.Properties.Name) {
+        $setData = $vlanConfig.vlanSets.$setName
+        $vlanSets[$setName] = @{
+            vlans = $setData.vlans
+            ipBase = $setData.ipBase
+            ipPrompts = $setData.ipPrompts
+            ipDefaults = $setData.ipDefaults
+        }
+        $vlanSetNames += $setName
+    }
+} else {
+    # Fallback to hardcoded sets with new structure
+    $vlanSets["4Wall"] = @{
+        vlans = @(
+            @{Name="196_Engineering"; VlanId=196},
+            @{Name="200_d3Net"; VlanId=200},
+            @{Name="210_sACN"; VlanId=210},
+            @{Name="214_10gMedia"; VlanId=214},
+            @{Name="216_10gMedia2"; VlanId=216},
+            @{Name="206_LED"; VlanId=206}
+        )
+        ipBase = "10.{vlan}.{third}.{fourth}"
+        ipPrompts = @("third", "fourth")
+        ipDefaults = @{third=13}
+    }
+    $vlanSets["AeonPoint"] = @{
+        vlans = @(
+            @{Name="10_Server_A"; VlanId=10},
+            @{Name="20_Server_B"; VlanId=20},
+            @{Name="30_Server_C"; VlanId=30},
+            @{Name="40_Server_D"; VlanId=40},
+            @{Name="50_System"; VlanId=50},
+            @{Name="60_Dante_Primary"; VlanId=60},
+            @{Name="65_Dante_Secondary"; VlanId=65},
+            @{Name="70_KVM"; VlanId=70},
+            @{Name="80_NDI"; VlanId=80},
+            @{Name="90_Internet"; VlanId=90}
+        )
+        ipBase = "10.{vlan}.{third}.{fourth}"
+        ipPrompts = @("third", "fourth")
+        ipDefaults = @{third=13}
+    }
+    $vlanSets["Desert"] = @{
+        vlans = @(
+            @{Name="101_Server_A"; VlanId=101},
+            @{Name="102_Server_B"; VlanId=102},
+            @{Name="103_Server_C"; VlanId=103},
+            @{Name="104_Server_D"; VlanId=104},
+            @{Name="105_System"; VlanId=105},
+            @{Name="106_Dante_Primary"; VlanId=106},
+            @{Name="116_Dante_Secondary"; VlanId=116},
+            @{Name="107_KVM"; VlanId=107},
+            @{Name="108_NDI"; VlanId=108},
+            @{Name="109_Internet"; VlanId=109},
+            @{Name="110_Omneo"; VlanId=110},
+            @{Name="111_LED"; VlanId=111},
+            @{Name="112_MERGE"; VlanId=112}
+        )
+        ipBase = "192.168.{vlan}.{fourth}"
+        ipPrompts = @("fourth")
+        ipDefaults = @{}
+    }
+    $vlanSetNames = @("4Wall", "AeonPoint", "Desert")
+}
+
+# Prompt for VLAN set dynamically
+Write-Host "Available VLAN sets:"
+for ($i = 0; $i -lt $vlanSetNames.Count; $i++) {
+    $setName = $vlanSetNames[$i]
+    $vlanCount = $vlanSets[$setName].vlans.Count
+    Write-Host "$($i+1). $setName ($vlanCount VLANs)"
+}
+
+$vlanChoice = Read-Host "Enter choice (1-$($vlanSetNames.Count))"
+$choiceIndex = [int]$vlanChoice - 1
+
+if ($choiceIndex -ge 0 -and $choiceIndex -lt $vlanSetNames.Count) {
+    $selectedVlanSet = $vlanSetNames[$choiceIndex]
+    $selectedSetData = $vlanSets[$selectedVlanSet]
+    $vlans = $selectedSetData.vlans
+    $ipBase = $selectedSetData.ipBase
+    $ipPrompts = $selectedSetData.ipPrompts
+    $ipDefaults = $selectedSetData.ipDefaults
+    Write-Host "Using $selectedVlanSet VLAN set ($($vlans.Count) VLANs)."
+} else {
+    Write-Host "Invalid choice, defaulting to $($vlanSetNames[0])."
+    $selectedVlanSet = $vlanSetNames[0]
+    $selectedSetData = $vlanSets[$selectedVlanSet]
+    $vlans = $selectedSetData.vlans
+    $ipBase = $selectedSetData.ipBase
+    $ipPrompts = $selectedSetData.ipPrompts
+    $ipDefaults = $selectedSetData.ipDefaults
+}
+
+# No longer need special case logic - using dynamic IP configuration from JSON
 
 # Prompt for mode
 Write-Host "Select mode:"
 Write-Host "1. Normal (create switch and adapters, then IP)"
 Write-Host "2. IP only (skip creation, only assign IPs)"
-$modeChoice = Read-Host "Enter choice (1 or 2, press Enter for Normal)"
+Write-Host "3. Nuke all (remove all virtual switches except default)"
+$modeChoice = Read-Host "Enter choice (1, 2, or 3, press Enter for Normal)"
 if ($modeChoice -eq "2") {
     $ipOnly = $true
+    $nukeAll = $false
+} elseif ($modeChoice -eq "3") {
+    $ipOnly = $false
+    $nukeAll = $true
 } else {
     $ipOnly = $false
+    $nukeAll = $false
+}
+
+# Handle nuke all mode
+if ($nukeAll) {
+    Write-Host "NUKE ALL MODE: Removing all virtual switches except default switches..."
+    Write-Host "WARNING: This will remove ALL user-created virtual switches and their VLAN adapters!"
+
+    $confirm = Read-Host "Are you sure you want to continue? Type 'YES' to confirm"
+    if ($confirm -ne "YES") {
+        Write-Host "Operation cancelled."
+        exit
+    }
+
+    # Get all virtual switches
+    $allSwitches = Get-VMSwitch
+    foreach ($switch in $allSwitches) {
+        # Skip default/built-in switches (typically named things like "Default Switch" or starting with certain patterns)
+        if ($switch.Name -notlike "*Default*" -and $switch.Name -notlike "vEthernet*" -and $switch.SwitchType -ne "Internal") {
+            Write-Host "Removing switch '$($switch.Name)' and all its adapters..."
+
+            # Remove all VLAN adapters associated with this switch
+            $adaptersOnSwitch = Get-VMNetworkAdapter -ManagementOS | Where-Object { $_.SwitchName -eq $switch.Name }
+            foreach ($adapter in $adaptersOnSwitch) {
+                Write-Host "Removing adapter '$($adapter.Name)'..."
+                Remove-VMNetworkAdapter -VMNetworkAdapter $adapter -ManagementOS
+                Start-Sleep -Seconds $delay
+            }
+
+            # Remove the switch
+            Write-Host "Removing switch '$($switch.Name)'..."
+            Remove-VMSwitch -Name $switch.Name -Force
+            Start-Sleep -Seconds $delay
+        } else {
+            Write-Host "Skipping default/built-in switch '$($switch.Name)'"
+        }
+    }
+
+    Write-Host "Nuke all operation completed."
+    exit
 }
 
 if (!$ipOnly) {
@@ -197,6 +419,26 @@ if (!$ipOnly) {
     if ([string]::IsNullOrWhiteSpace($switchName)) { $switchName = "vLanSwitch" }
     Write-Host "Using switch name: $switchName"
 
+    # Deep cleanup: Remove ALL virtual switches bound to the selected physical NIC
+    Write-Host "Checking for existing virtual switches bound to '$selectedNic'..."
+    $switchesOnNic = Get-VMSwitch | Where-Object { $_.NetAdapterName -eq $selectedNic }
+    foreach ($switch in $switchesOnNic) {
+        Write-Host "Found existing switch '$($switch.Name)' bound to '$selectedNic'. Cleaning up..."
+
+        # Remove all VLAN adapters associated with this switch
+        $adaptersOnSwitch = Get-VMNetworkAdapter -ManagementOS | Where-Object { $_.SwitchName -eq $switch.Name }
+        foreach ($adapter in $adaptersOnSwitch) {
+            Write-Host "Removing adapter '$($adapter.Name)' from switch '$($switch.Name)'..."
+            Remove-VMNetworkAdapter -VMNetworkAdapter $adapter -ManagementOS
+            Start-Sleep -Seconds $delay
+        }
+
+        # Remove the switch itself
+        Write-Host "Removing virtual switch '$($switch.Name)'..."
+        Remove-VMSwitch -Name $switch.Name -Force
+        Start-Sleep -Seconds $delay
+    }
+
     # Create virtual switch
     Write-Host "Creating virtual switch '$switchName'..."
     New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true
@@ -213,33 +455,86 @@ if (!$ipOnly) {
     }
 }
 
-# Prompt for IP octets
-if (!$isDesert) {
-    $thirdOctet = Read-Host "Enter the 3rd octet for IP addresses (press Enter for default: 13)"
-    if ([string]::IsNullOrWhiteSpace($thirdOctet)) { $thirdOctet = "13" }
+# Prompt for IP octets dynamically based on VLAN set configuration
+$ipOctets = @{}
+foreach ($promptName in $ipPrompts) {
+    $defaultValue = $ipDefaults[$promptName]
+    if ($defaultValue) {
+        $promptText = "Enter the $promptName octet for IP addresses (press Enter for default: $defaultValue)"
+        $userInput = Read-Host $promptText
+        if ([string]::IsNullOrWhiteSpace($userInput)) {
+            $ipOctets[$promptName] = $defaultValue
+        } else {
+            $ipOctets[$promptName] = $userInput
+        }
+    } else {
+        $promptText = "Enter the $promptName octet for IP addresses"
+        $ipOctets[$promptName] = Read-Host $promptText
+    }
 }
-$fourthOctet = Read-Host "Enter the 4th octet for IP addresses"
 
 if (!$ipOnly) {
     # Wait 10 seconds after last adapter creation
     Start-Sleep -Seconds 10
 }
 
-# Assign IP addresses to virtual adapters
+# Assign IP addresses to virtual adapters using template from JSON
 foreach ($vlan in $vlans) {
-    if ($isDesert) {
-        $ip = "192.168.$($vlan.VlanId).$fourthOctet"
-    } else {
-        $ip = "10.$($vlan.VlanId).$thirdOctet.$fourthOctet"
+    # Build IP address from template
+    $ip = $ipBase
+    $ip = $ip -replace '\{vlan\}', $vlan.VlanId
+    foreach ($octetName in $ipOctets.Keys) {
+        $ip = $ip -replace "\{$octetName\}", $ipOctets[$octetName]
     }
+    
     Write-Host "Setting IP $ip for '$($vlan.Name)'..."
-    $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $vlan.Name }
+
+    # Wait for adapter to be available and get fresh adapter info
+    $maxRetries = 5
+    $retryCount = 0
+    $adapter = $null
+
+    while ($retryCount -lt $maxRetries -and $adapter -eq $null) {
+        $adapter = Get-NetAdapter | Where-Object { $_.Name -eq $vlan.Name }
+        if ($adapter -eq $null) {
+            Write-Host "Waiting for adapter '$($vlan.Name)' to be available... ($($retryCount + 1)/$maxRetries)"
+            Start-Sleep -Seconds 2
+            $retryCount++
+        }
+    }
+
     if ($adapter) {
-        # Disable DHCP and set static IP
-        Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled
-        New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -IPAddress $ip -PrefixLength 24
+        try {
+            # Remove any existing IP addresses first
+            $existingIPs = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -ErrorAction SilentlyContinue
+            foreach ($existingIP in $existingIPs) {
+                if ($existingIP.IPAddress -ne $ip) {
+                    Write-Host "Removing existing IP $($existingIP.IPAddress) from '$($vlan.Name)'..."
+                    Remove-NetIPAddress -IPAddress $existingIP.IPAddress -Confirm:$false -ErrorAction SilentlyContinue
+                }
+            }
+
+            # Disable DHCP
+            Write-Host "Disabling DHCP for '$($vlan.Name)'..."
+            Set-NetIPInterface -InterfaceIndex $adapter.InterfaceIndex -Dhcp Disabled
+
+            # Set static IP
+            Write-Host "Assigning static IP $ip to '$($vlan.Name)'..."
+            New-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -IPAddress $ip -PrefixLength 24 -ErrorAction Stop
+
+            # Verify the IP was set correctly
+            $verifyIP = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex | Where-Object { $_.IPAddress -eq $ip }
+            if ($verifyIP) {
+                Write-Host "✓ Successfully set IP $ip for '$($vlan.Name)'"
+            } else {
+                Write-Host "⚠ Warning: IP $ip may not have been set correctly for '$($vlan.Name)'"
+            }
+        }
+        catch {
+            Write-Host "✗ Error setting IP for '$($vlan.Name)': $($_.Exception.Message)"
+        }
     } else {
-        Write-Host "Warning: Adapter '$($vlan.Name)' not found for IP assignment."
+        Write-Host "✗ Error: Adapter '$($vlan.Name)' not found after $maxRetries attempts"
     }
 }
 

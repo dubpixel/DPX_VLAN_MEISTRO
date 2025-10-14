@@ -1,0 +1,64 @@
+{
+  "vlanSets": {
+    "4Wall": {
+      "vlans": [
+        {"Name": "196_Engineering", "VlanId": 196},
+        {"Name": "200_d3Net", "VlanId": 200},
+        {"Name": "210_sACN", "VlanId": 210},
+        {"Name": "214_10gMedia", "VlanId": 214},
+        {"Name": "216_10gMedia2", "VlanId": 216},
+        {"Name": "206_LED", "VlanId": 206}
+      ],
+      "ipBase": "10.{vlan}.{third}.{fourth}",
+      "ipPrompts": ["third", "fourth"],
+      "ipDefaults": {"third": 13}
+    },
+    "AeonPoint": {
+      "vlans": [
+        {"Name": "10_Server_A", "VlanId": 10},
+        {"Name": "20_Server_B", "VlanId": 20},
+        {"Name": "30_Server_C", "VlanId": 30},
+        {"Name": "40_Server_D", "VlanId": 40},
+        {"Name": "50_System", "VlanId": 50},
+        {"Name": "60_Dante_Primary", "VlanId": 60},
+        {"Name": "65_Dante_Secondary", "VlanId": 65},
+        {"Name": "70_KVM", "VlanId": 70},
+        {"Name": "80_NDI", "VlanId": 80},
+        {"Name": "90_Internet", "VlanId": 90}
+      ],
+      "ipBase": "10.{vlan}.{third}.{fourth}",
+      "ipPrompts": ["third", "fourth"],
+      "ipDefaults": {"third": 3}
+    },
+    "Desert": {
+      "vlans": [
+        {"Name": "101_Server_A", "VlanId": 101},
+        {"Name": "102_Server_B", "VlanId": 102},
+        {"Name": "103_Server_C", "VlanId": 103},
+        {"Name": "104_Server_D", "VlanId": 104},
+        {"Name": "105_System", "VlanId": 105},
+        {"Name": "106_Dante_Primary", "VlanId": 106},
+        {"Name": "116_Dante_Secondary", "VlanId": 116},
+        {"Name": "107_KVM", "VlanId": 107},
+        {"Name": "108_NDI", "VlanId": 108},
+        {"Name": "109_Internet", "VlanId": 109},
+        {"Name": "110_Omneo", "VlanId": 110},
+        {"Name": "111_LED", "VlanId": 111},
+        {"Name": "112_MERGE", "VlanId": 112}
+      ],
+      "ipBase": "192.168.{vlan}.{fourth}",
+      "ipPrompts": ["fourth"],
+      "ipDefaults": {}
+    },
+    "ExampleFacility": {
+      "vlans": [
+        {"Name": "100_Management", "VlanId": 100},
+        {"Name": "200_VoIP", "VlanId": 200},
+        {"Name": "300_Guest", "VlanId": 300}
+      ],
+      "ipBase": "10.{vlan}.{third}.{fourth}",
+      "ipPrompts": ["third", "fourth"],
+      "ipDefaults": {"third": 10}
+    }
+  }
+}

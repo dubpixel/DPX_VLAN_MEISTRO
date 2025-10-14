@@ -214,11 +214,13 @@ The script will automatically detect and offer all VLAN sets as options during s
    - Script creates virtual switch and VLAN adapters with delays
 
 4. **IP Configuration**
-   - Enter 3rd octet for IP addresses (defaults to 13 for non-Desert)
-   - Enter 4th octet for IP addresses
-   - IP formats:
+   - Script prompts for required IP octets based on VLAN set configuration
+   - Defaults are shown if defined in `vlan_sets.json`
+   - IP addresses are built from the `ipBase` template (e.g., `10.{vlan}.{third}.{fourth}`)
+   - Common patterns:
+     - Standard: `10.<vlan_id>.<3rd_octet>.<4th_octet>`
      - Desert: `192.168.<vlan_id>.<4th_octet>`
-     - Others: `10.<vlan_id>.<3rd_octet>.<4th_octet>`
+     - Custom: Any combination defined in JSON
 
 5. **Nuke All Mode**
    - Removes all user-created virtual switches and their VLAN adapters
@@ -229,44 +231,188 @@ The script will automatically detect and offer all VLAN sets as options during s
    - Script assigns static IPs to all virtual adapters (in Normal/IP-only modes)
    - Displays progress and completion status
 
-### Example Usage
-```
-Select VLAN set:
-1. 4Wall
-2. Aeon Point
-3. Desert
-Enter choice (1, 2, or 3): 2
+### Example Usage Scenarios
+
+#### **Scenario 1: Complete Setup (Normal Mode)**
+Setting up a new Hyper-V host with AeonPoint VLAN configuration:
+
+```powershell
+PS C:\DPX_VLAN_MEISTRO\src> .\vlan_mesitro.ps1
+
+# ASCII art title and warning messages display...
+
+Available VLAN sets:
+1. 4Wall (6 VLANs)
+2. AeonPoint (10 VLANs)
+3. Desert (13 VLANs)
+4. ExampleFacility (3 VLANs)
+Enter choice (1-4): 2
+Using AeonPoint VLAN set (10 VLANs).
 
 Select mode:
 1. Normal (create switch and adapters, then IP)
 2. IP only (skip creation, only assign IPs)
-Enter choice (1 or 2, press Enter for Normal): 1
+3. Nuke all (remove all virtual switches except default)
+Enter choice (1, 2, or 3, press Enter for Normal): 1
 
 Listing available network adapters:
-1. Ethernet - Intel(R) Ethernet Connection
-Select the NIC by number (1-1): 1
+1. Ethernet - Intel(R) I350 Gigabit Network Connection
+2. Ethernet 2 - Realtek PCIe GbE Family Controller
+Select the NIC by number (1-2): 1
+Selected NIC: Ethernet
 
 Enter virtual switch name (press Enter for default: vLanSwitch):
+Using switch name: vLanSwitch
 
-Enter the 3rd octet for IP addresses (press Enter for default: 13): 13
-Enter the 4th octet for IP addresses: 100
+Checking for existing virtual switches bound to 'Ethernet'...
+Creating virtual switch 'vLanSwitch'...
+Adding virtual adapter '10_Server_A'...
+Setting VLAN ID 10 for '10_Server_A'...
+# ... continues for all VLANs ...
+
+Enter the third octet for IP addresses (press Enter for default: 13): 20
+Enter the fourth octet for IP addresses: 100
+
+Setting IP 10.10.20.100 for '10_Server_A'...
+✓ Successfully set IP 10.10.20.100 for '10_Server_A'
+# ... continues for all adapters ...
+
+Script completed.
 ```
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+**Result:** All AeonPoint VLANs created with IPs like `10.10.20.100`, `10.20.20.100`, etc.
+
+---
+
+#### **Scenario 2: IP Address Update Only**
+Changing IP addresses on existing VLAN adapters without recreating them:
+
+```powershell
+PS C:\DPX_VLAN_MEISTRO\src> .\vlan_mesitro.ps1
+
+Available VLAN sets:
+1. 4Wall (6 VLANs)
+2. AeonPoint (10 VLANs)
+3. Desert (13 VLANs)
+Enter choice (1-4): 3
+Using Desert VLAN set (13 VLANs).
+
+Select mode:
+1. Normal (create switch and adapters, then IP)
+2. IP only (skip creation, only assign IPs)
+3. Nuke all (remove all virtual switches except default)
+Enter choice (1, 2, or 3, press Enter for Normal): 2
+
+Enter the fourth octet for IP addresses: 50
+
+Setting IP 192.168.101.50 for '101_Server_A'...
+✓ Successfully set IP 192.168.101.50 for '101_Server_A'
+# ... continues for all adapters ...
+
+Script completed.
+```
+
+**Result:** IPs updated to `192.168.101.50`, `192.168.102.50`, etc. without recreating switches.
+
+---
+
+#### **Scenario 3: Complete Cleanup (Nuke All)**
+Removing all virtual switches before decommissioning or rebuilding:
+
+```powershell
+PS C:\DPX_VLAN_MEISTRO\src> .\vlan_mesitro.ps1
+
+Available VLAN sets:
+1. 4Wall (6 VLANs)
+2. AeonPoint (10 VLANs)
+3. Desert (13 VLANs)
+Enter choice (1-4): 1
+
+Select mode:
+1. Normal (create switch and adapters, then IP)
+2. IP only (skip creation, only assign IPs)
+3. Nuke all (remove all virtual switches except default)
+Enter choice (1, 2, or 3, press Enter for Normal): 3
+
+NUKE ALL MODE: Removing all virtual switches except default switches...
+WARNING: This will remove ALL user-created virtual switches and their VLAN adapters!
+Are you sure you want to continue? Type 'YES' to confirm: YES
+
+Removing switch 'vLanSwitch' and all its adapters...
+Removing adapter '10_Server_A'...
+# ... continues for all adapters and switches ...
+Skipping default/built-in switch 'Default Switch'
+
+Nuke all operation completed.
+```
+
+**Result:** All user-created switches removed, system returned to clean state.
+
+---
+
+#### **Scenario 4: Custom Facility Setup**
+Using a custom VLAN set defined in `vlan_sets.json`:
+
+```json
+// Added to vlan_sets.json:
+"StudioB": {
+  "vlans": [
+    {"Name": "15_Control", "VlanId": 15},
+    {"Name": "25_Audio_Dante", "VlanId": 25},
+    {"Name": "35_Video_NDI", "VlanId": 35}
+  ],
+  "ipBase": "10.{vlan}.5.{fourth}",
+  "ipPrompts": ["fourth"],
+  "ipDefaults": {}
+}
+```
+
+```powershell
+PS C:\DPX_VLAN_MEISTRO\src> .\vlan_mesitro.ps1
+
+Available VLAN sets:
+1. 4Wall (6 VLANs)
+2. AeonPoint (10 VLANs)
+3. Desert (13 VLANs)
+4. ExampleFacility (3 VLANs)
+5. StudioB (3 VLANs)
+Enter choice (1-5): 5
+Using StudioB VLAN set (3 VLANs).
+
+# ... select mode, NIC, switch name ...
+
+Enter the fourth octet for IP addresses: 10
+
+Setting IP 10.15.5.10 for '15_Control'...
+Setting IP 10.25.5.10 for '25_Audio_Dante'...
+Setting IP 10.35.5.10 for '35_Video_NDI'...
+
+Script completed.
+```
+
+**Result:** Custom facility configured with fixed third octet (5) as defined in JSON.
+
 <!-- REFLECTION -->
 ## Reflection
 
 * what did we learn? 
-  - _x_
+  - cleanup current vlan state is better than adding vlans
 * what do we like/hate?
-  - _y_
+  - 
 * what would/could we do differently?
-  - _z_
+  - 
   <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-    - [ ] Nested Feature
+- [x] Set up virtual switch and each virtual interface + vlan tag, with delay
+- [?] Set Static IP for each virtual interface
+- [?] Read from external JSON for VLAN definitions
+- [?] Remove Virtual Switch / Virtual interface local to selected interface
+  - [?] NUKE ALL mode (with safety)
+- [ ] Python and TKinter GUI to wrap powershell commands 
+  - [ ] to circumvent the .ps1 running issues on certain systems. 
+
+
 
 See the [open issues](https://github.com/dubpixel/dpx_vlan_meistro/issues) for a full list of proposed features (and known issues).
 

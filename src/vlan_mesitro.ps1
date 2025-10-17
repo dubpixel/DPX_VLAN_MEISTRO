@@ -99,6 +99,8 @@
 # → Solution: Modified the network adapter listing to show all adapters (not just "Up" ones), sorted by name, and included the status (Up/Down) in the display for better visibility.
 # User prompt: Checking for existing virtual switches bound to '10G'... Creating virtual switch 'vLanSwitch'... New-VMSwitch : Failed while adding virtual Ethernet switch connections. External Ethernet adapter 'Intel(R) Ethernet Converged Network Adapter X710 #2' is already bound to the Microsoft Virtual Switch protocol.
 # → Solution: Added Disable-NetAdapterBinding to disable the virtual switch protocol binding on the selected adapter before creating the new switch, allowing creation even if the adapter was previously bound to another switch (like the default switch).
+# User prompt: ok so lets keep debugging - so far it did not remove anything. to start ... rhis definitely didnt happen. can you address this pelase
+# → Solution: Added removal of the "Default Switch" (internal switch) before creating the external switch, as the default switch may be using the adapter without setting NetAdapterName, preventing external switch creation.
 #
 # ================================================================================
 ################################################################################
@@ -457,6 +459,13 @@ if (!$ipOnly) {
 
     # Create virtual switch
     Write-Host "Creating virtual switch '$switchName'..."
+    # Remove default switch if it exists to free the adapter
+    $defaultSwitch = Get-VMSwitch | Where-Object { $_.Name -eq "Default Switch" }
+    if ($defaultSwitch) {
+        Write-Host "Removing default switch to allow external switch creation..."
+        Remove-VMSwitch -Name "Default Switch" -Force
+        Start-Sleep -Seconds $delay
+    }
     # Disable any existing virtual switch binding on the adapter
     Disable-NetAdapterBinding -Name $selectedNic -ComponentID vms_pp -ErrorAction SilentlyContinue
     New-VMSwitch -Name $switchName -NetAdapterName $selectedNic -AllowManagementOS $true

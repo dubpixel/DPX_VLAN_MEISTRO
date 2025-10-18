@@ -40,9 +40,9 @@
     <img src="images/logo.png" alt="Logo" height="120">
   </a>
 <h1 align="center">dpx_vlan_meistro</h1>
-<h3 align="center"><i>...setup some vlans n stuff</i></h3>
+<h3 align="center"><i>Hyper-V Network Configuration Automation</i></h3>
   <p align="center">
-    ...a short description to tease interest
+    PowerShell script that creates virtual switches and VLAN-tagged network adapters for different facility configurations
     <br />
      »  
      <a href="https://github.com/dubpixel/dpx_vlan_meistro"><strong>Project Here!</strong></a>
@@ -83,21 +83,57 @@
 <!-- ABOUT THE PROJECT -->
 <details>
 <summary><h3>About The Project</h3></summary>
-a lengthy description about the project that should probably be many lines. this is where you can get deep about shit and be like oh man its the best hot dog in the universe because i use the koskusko mustart!
-</br>
+DPX_VLAN_MEISTRO is a comprehensive PowerShell automation script for Windows Hyper-V environments. It simplifies the complex process of setting up virtual network infrastructure by creating virtual switches, VLAN-tagged network adapters, and assigning static IP addresses according to facility-specific configurations.
 
-*author(s): // www.dubpixel.tv  - i@dubpixel.tv | other authors* 
+The script supports multiple facility types (4Wall, Aeon Point, Desert, and custom configurations) with dynamic VLAN set loading from external JSON files. It includes robust validation, safety features, and multiple operation modes to handle different network management scenarios.
+
+**Key Capabilities:**
+- **Dynamic Configuration**: Load VLAN sets from external JSON files without code changes
+- **Subnet-Aware Validation**: Comprehensive IP validation against subnet constraints
+- **Multiple Modes**: Normal setup, IP-only updates, and complete cleanup (nuke all)
+- **Safety Features**: Deep cleanup, adapter reset, and explicit confirmations
+- **Configuration Summary**: Detailed output showing all network settings
+
+*author(s): // www.dubpixel.tv  - i@dubpixel.tv* 
 </br>
 <h3>Images</h3>
 
 ### FRONT
 ![FRONT][product-front]
 </details>
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Built With 
+## Features
+
+### 🔧 **Dynamic VLAN Configuration**
+- Load facility-specific VLAN sets from external JSON files
+- Support for multiple facility types (4Wall, Aeon Point, Desert, custom)
+- No code changes required to add new configurations
+
+### 🛡️ **Advanced IP Management**
+- Subnet-aware IP validation with network/broadcast address checking
+- Dynamic IP prompting based on configuration templates
+- Default value support for common octets
+- Comprehensive validation with detailed error messages
+
+### ⚙️ **Multiple Operation Modes**
+- **Normal Mode**: Complete setup (switch + adapters + IPs)
+- **IP Only Mode**: Update IP addresses on existing adapters
+- **Nuke All Mode**: Complete cleanup of all virtual switches
+
+### 🔍 **Safety & Validation**
+- Deep cleanup of existing configurations
+- Adapter binding reset and verification
+- Explicit confirmation for destructive operations
+- Comprehensive error handling and retry logic
+
+### 📊 **Configuration Summary**
+- Detailed output showing all network settings
+- VLAN assignments with IP addresses and broadcast ranges
+- Selected NIC and subnet information
+
+### 🏗️ **Built With**
  
- * PowerShell
+ * PowerShell 5.1+
  * Windows Hyper-V
  * GitHub Copilot (AI-assisted development)
 
@@ -122,11 +158,31 @@ a lengthy description about the project that should probably be many lines. this
 ## Getting Started
 
   ### Prerequisites
-  * Windows 10/11 with Hyper-V feature enabled
-  * PowerShell 5.1 or higher
-  * Administrative privileges
-  * At least one physical network adapter
-  * Hyper-V PowerShell module (included with Hyper-V)
+  
+  #### System Requirements
+  * **Operating System**: Windows 10/11 Pro, Enterprise, or Education (Home edition does not support Hyper-V)
+  * **PowerShell**: Version 5.1 or higher (included with Windows)
+  * **Hardware**: At least one physical network adapter
+  * **Permissions**: Administrative privileges required
+  
+  #### Hyper-V Setup
+  
+  1. **Enable Hyper-V Feature**
+     - Open Control Panel → Programs → Turn Windows features on or off
+     - Check "Hyper-V" and "Hyper-V Management Tools"
+     - Restart computer when prompted
+     
+  2. **Verify Hyper-V Installation**
+     ```powershell
+     # Run in PowerShell as Administrator
+     Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+     ```
+     
+  3. **Check Hyper-V Services**
+     ```powershell
+     # Verify Hyper-V services are running
+     Get-Service -Name vmms, vmicvss, vmicguestinterface, vmicheartbeat
+     ```
 
   ### Installation
 
@@ -138,8 +194,72 @@ a lengthy description about the project that should probably be many lines. this
      ```bash
      cd dpx_vlan_meistro/src
      ```
-  3. Ensure Hyper-V is enabled in Windows Features
+  3. Ensure you have administrative privileges
   4. Run PowerShell as Administrator
+
+## Configuration
+
+### VLAN Sets Configuration
+
+VLAN configurations are stored in `src/vlan_sets.json`. The script automatically loads all facility configurations from this file.
+
+#### Adding a New Facility
+
+```json
+{
+  "vlanSets": {
+    "YourFacilityName": {
+      "vlans": [
+        {"Name": "Server_VLAN", "VlanId": 100},
+        {"Name": "Client_VLAN", "VlanId": 200},
+        {"Name": "Management", "VlanId": 999}
+      ],
+      "ipBase": "10.{vlan}.{third}.{fourth}",
+      "ipPrompts": ["third", "fourth"],
+      "ipDefaults": {"third": 10},
+      "subnet": "255.255.255.0"
+    }
+  }
+}
+```
+
+#### Subnet Notation Examples
+
+The script supports both dotted decimal and CIDR notation for subnet masks:
+
+```json
+// Dotted decimal notation
+"subnet": "255.252.0.0"    // /14 subnet
+
+// CIDR notation  
+"subnet": "/14"            // Equivalent to 255.252.0.0
+
+// Other common examples
+"subnet": "255.255.255.0"  // /24 (Class C)
+"subnet": "255.255.252.0"  // /22 
+"subnet": "255.254.0.0"    // /15
+```
+
+#### Configuration Parameters
+
+- **`vlans`**: Array of VLAN objects with `Name` and `VlanId` properties
+- **`ipBase`**: IP address template using placeholders:
+  - `{vlan}` - Replaced with the VLAN ID
+  - `{third}` - Third octet (user prompted)
+  - `{fourth}` - Fourth octet (user prompted)
+- **`ipPrompts`**: Array of octets the user will be prompted to enter
+- **`ipDefaults`**: Optional default values for prompted octets
+- **`subnet`**: Subnet mask - supports both formats:
+  - Dotted decimal: `"255.252.0.0"` (recommended)
+  - CIDR notation: `"/14"` (automatically converted)
+
+#### IP Configuration Examples
+
+| Facility | IP Template | Result (vlan=100, third=5, fourth=10) |
+|----------|-------------|--------------------------------------|
+| Standard | `10.{vlan}.{third}.{fourth}` | `10.100.5.10` |
+| Desert | `192.168.{vlan}.{fourth}` | `192.168.100.10` |
+| Custom | `172.16.{third}.{vlan}` | `172.16.5.100` |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -151,8 +271,27 @@ a lengthy description about the project that should probably be many lines. this
 - PowerShell with administrative privileges
 - Network adapter(s) available for virtual switch creation
 
-### VLAN Configuration
-VLAN sets are defined in `src/vlan_sets.json`. You can add new facility configurations by editing this file:
+### Script Features
+
+#### Subnet-Aware IP Validation
+The script validates all IP addresses against subnet constraints:
+- Checks for network and broadcast address conflicts
+- Displays detailed validation results
+- Shows network and broadcast ranges for each IP
+- Prevents invalid configurations before applying changes
+
+#### Configuration Summary
+At completion, the script displays:
+- Selected network adapter
+- Subnet mask information
+- All VLAN assignments with IP addresses
+- Broadcast address ranges
+
+#### Safety Features
+- Comprehensive warnings about network disruption
+- Deep cleanup of existing configurations
+- Adapter binding reset and verification
+- Explicit confirmation for destructive operations
 
 ```json
 {
@@ -191,7 +330,11 @@ The script will automatically detect and offer all VLAN sets as options during s
 
 3. **Execute the script**
    ```powershell
-   .\vlan_mesitro.powershell
+   # Option 1: Standard execution (may require execution policy change)
+   .\vlan_mesitro.ps1
+   
+   # Option 2: Bypass execution policy (recommended)
+   powershell -ExecutionPolicy Bypass -File .\vlan_mesitro.ps1
    ```
 
    **Note:** The script displays a comprehensive warning message about potential network disruption. Read it carefully before proceeding.
@@ -363,7 +506,8 @@ Using a custom VLAN set defined in `vlan_sets.json`:
   ],
   "ipBase": "10.{vlan}.5.{fourth}",
   "ipPrompts": ["fourth"],
-  "ipDefaults": {}
+  "ipDefaults": {},
+  "subnet": "255.255.255.0"
 }
 ```
 
@@ -392,25 +536,128 @@ Script completed.
 
 **Result:** Custom facility configured with fixed third octet (5) as defined in JSON.
 
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### **"Failed while adding virtual Ethernet switch connections"**
+**Problem:** The selected network adapter is already bound to another virtual switch.
+**Solution:** 
+1. Run the script in "Nuke All" mode first to clean up existing switches
+2. Or manually remove conflicting switches using Hyper-V Manager
+3. Ensure no other virtual switches are using the selected adapter
+
+#### **"Inconsistent parameters PolicyStore PersistentStore and Dhcp Enabled"**
+**Problem:** DHCP settings conflict during IP assignment.
+**Solution:** The script handles this automatically, but if it persists:
+1. Manually disable DHCP on the adapter first
+2. Run the script in IP-only mode
+3. Check that the adapter isn't in a transitional state
+
+#### **"Adapter not found after creation"**
+**Problem:** Hyper-V adapters take time to appear in the system.
+**Solution:** The script includes retry logic, but if it fails:
+1. Wait 30-60 seconds after switch creation
+2. Check Hyper-V Manager to verify adapters were created
+3. Run in IP-only mode to assign IPs to existing adapters
+
+#### **"Permission denied" or "Access denied"**
+**Problem:** Script not run with administrative privileges.
+**Solution:**
+1. Right-click PowerShell and select "Run as Administrator"
+2. Verify you're in an elevated prompt (should show "Administrator:" in title)
+
+#### **Hyper-V Not Available**
+**Problem:** Hyper-V features not enabled or not supported.
+**Solution:**
+1. Verify you're using Windows 10/11 Pro/Enterprise/Education
+2. Enable Hyper-V in Windows Features
+3. Restart computer
+4. Run: `Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All`
+
+#### **"Cannot bind to adapter"**
+**Problem:** Network adapter is in use by another application or service.
+**Solution:**
+1. Close applications using the adapter
+2. Disable VPN clients temporarily
+3. Check for conflicting virtual switches
+4. Use "Nuke All" mode to clean up
+
+#### **IP Validation Errors**
+**Problem:** IP addresses conflict with network or broadcast addresses.
+**Solution:** The script will show detailed validation errors. Choose different IP octets that don't match:
+- Network address (first usable IP in subnet)
+- Broadcast address (last IP in subnet)
+
+#### **Script Hangs or Freezes**
+**Problem:** Long delays during adapter creation.
+**Solution:** This is normal behavior. The script includes intentional delays to ensure proper Hyper-V operation. Wait for completion - it may take 2-3 minutes for full setup.
+
+### Debug Mode
+For additional troubleshooting, you can add debug output by modifying the script to show more verbose information about each step.
+
+### Getting Help
+If you encounter issues not covered here:
+1. Check the [Issues](https://github.com/dubpixel/dpx_vlan_meistro/issues) page
+2. Create a new issue with your error messages and system details
+3. Include your Windows version, Hyper-V status, and script output
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 <!-- REFLECTION -->
 ## Reflection
 
-* what did we learn? 
-  - cleanup current vlan state is better than adding vlans
-* what do we like/hate?
-  - 
-* what would/could we do differently?
-  - 
-  <!-- ROADMAP -->
+### What We Learned
+- **Deep cleanup is essential**: Removing existing VLAN configurations before creating new ones prevents conflicts and ensures clean setups
+- **Hyper-V timing matters**: Network adapters need time to initialize properly - delays are crucial for reliability
+- **JSON configuration is powerful**: External configuration files allow facility-specific setups without code changes
+- **Validation prevents disasters**: Subnet-aware IP checking catches configuration errors before they cause network issues
+- **Safety features build trust**: Comprehensive warnings and confirmations prevent accidental network disruption
+
+### What We Like
+- **Dynamic configuration loading**: No code changes needed for new facilities
+- **Comprehensive validation**: Prevents invalid network configurations
+- **Multiple operation modes**: Normal, IP-only, and nuke-all cover all use cases
+- **Detailed progress feedback**: Users know exactly what's happening
+- **Configuration summary**: Clear overview of all network settings
+
+### What We Could Do Differently
+- **GUI interface**: Python/Tkinter wrapper to avoid PowerShell execution issues
+- **Configuration validation**: Pre-flight checks on JSON configuration files
+- **Backup/restore**: Save existing configurations before making changes
+- **Network testing**: Automated connectivity verification after setup
+- **Logging**: Comprehensive logging for troubleshooting and auditing
+
+### Current Version
+**v1.87** - Latest stable release with subnet-aware validation and configuration summary features.
+
+<!-- ROADMAP -->
 ## Roadmap
 
-- [x] Set up virtual switch and each virtual interface + vlan tag, with delay
-- [?] Set Static IP for each virtual interface
-- [?] Read from external JSON for VLAN definitions
-- [?] Remove Virtual Switch / Virtual interface local to selected interface
-  - [?] NUKE ALL mode (with safety)
-- [ ] Python and TKinter GUI to wrap powershell commands 
-  - [ ] to circumvent the .ps1 running issues on certain systems. 
+### ✅ **Completed Features**
+- [x] Virtual switch and VLAN adapter creation with delays
+- [x] Static IP assignment with validation
+- [x] External JSON configuration loading
+- [x] Deep cleanup of existing configurations
+- [x] Nuke All mode with safety confirmations
+- [x] Subnet-aware IP validation
+- [x] Configuration summary output
+- [x] Dynamic IP prompting with defaults
+- [x] Multiple facility support (4Wall, Aeon Point, Desert, custom)
+
+### 🔄 **In Progress**
+- [ ] Python/Tkinter GUI wrapper for PowerShell execution
+- [ ] Configuration file validation
+- [ ] Automated network connectivity testing
+
+### 📋 **Planned Features**
+- [ ] Backup/restore functionality for network configurations
+- [ ] Comprehensive logging and audit trails
+- [ ] Dry-run mode for testing configurations
+- [ ] Network performance monitoring
+- [ ] Integration with network management tools
+
+See the [open issues](https://github.com/dubpixel/dpx_vlan_meistro/issues) for a full list of proposed features (and known issues).
 
 
 

@@ -26,7 +26,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.85
+# VERSION: 1.87
 # ================================================================================
 #
 # [File-specific information]
@@ -85,7 +85,7 @@ Write-Host "║                           ██║  ██║██╔═══
 Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                           ║" -ForegroundColor Cyan
 Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                           ║" -ForegroundColor Cyan
 Write-Host "║                                                                              ║" -ForegroundColor Cyan
-Write-Host "║                             VLAN MEISTRO v1.85                               ║" -ForegroundColor Yellow
+Write-Host "║                             VLAN MEISTRO v1.87                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
@@ -141,6 +141,55 @@ function Test-ModeChoice {
     return ([string]::IsNullOrWhiteSpace($input) -or $input -eq "1" -or $input -eq "2" -or $input -eq "3")
 }
 
+# Function to validate IP address against subnet mask
+function Test-IPAgainstSubnet {
+    param([string]$ipAddress, [string]$subnetMask)
+    
+    try {
+        # Parse IP and subnet strings into byte arrays
+        $ipParts = $ipAddress -split '\.'
+        $subnetParts = $subnetMask -split '\.'
+        
+        if ($ipParts.Length -ne 4 -or $subnetParts.Length -ne 4) {
+            throw "Invalid IP or subnet format"
+        }
+        
+        # Calculate network address (IP AND subnet for each octet)
+        $networkParts = @()
+        for ($i = 0; $i -lt 4; $i++) {
+            $networkParts += ([int]$ipParts[$i] -band [int]$subnetParts[$i])
+        }
+        
+        # Calculate broadcast address (network OR ~subnet for each octet)
+        $broadcastParts = @()
+        for ($i = 0; $i -lt 4; $i++) {
+            $broadcastParts += ($networkParts[$i] -bor ([int]$subnetParts[$i] -bxor 255))
+        }
+        
+        # Format addresses
+        $networkAddress = "$($networkParts[0]).$($networkParts[1]).$($networkParts[2]).$($networkParts[3])"
+        $broadcastAddress = "$($broadcastParts[0]).$($broadcastParts[1]).$($broadcastParts[2]).$($broadcastParts[3])"
+        
+        # Check if IP is network or broadcast address
+        $isNetworkAddress = ($ipParts -join '.') -eq $networkAddress
+        $isBroadcastAddress = ($ipParts -join '.') -eq $broadcastAddress
+        
+        return @{
+            IsValid = (-not $isNetworkAddress -and -not $isBroadcastAddress)
+            NetworkAddress = $networkAddress
+            BroadcastAddress = $broadcastAddress
+        }
+    }
+    catch {
+        Write-Host "DEBUG: Exception in Test-IPAgainstSubnet: $($_.Exception.Message)" -ForegroundColor Red
+        return @{
+            IsValid = $false
+            NetworkAddress = "ERROR: $($_.Exception.Message)"
+            BroadcastAddress = "ERROR"
+        }
+    }
+}
+
 # Define hardcoded VLAN configurations (used as fallbacks)
 $hardcoded4Wall = @{
     vlans = @(
@@ -172,7 +221,7 @@ $hardcodedAeonPoint = @{
     ipBase = "10.{vlan}.{third}.{fourth}"
     ipPrompts = @("third", "fourth")
     ipDefaults = @{third=13}
-    subnet = "255.255.254.0"
+    subnet = "255.255.252.0"
 }
 $hardcodedDesert = @{
     vlans = @(
@@ -303,31 +352,36 @@ if ($choiceIndex -ge 0 -and $choiceIndex -lt $vlanSetNames.Count) {
 
 # No longer need special case logic - using dynamic IP configuration from JSON
 
+# Define valid modes for maintainable mode selection
+$validModes = @{
+    "1" = @{ name = "Normal"; description = "Normal (create switch and adapters, then IP)"; ipOnly = $false; nukeAll = $false }
+    "2" = @{ name = "IP only"; description = "IP only (skip creation, only assign IPs)"; ipOnly = $true; nukeAll = $false }
+    "3" = @{ name = "Nuke all"; description = "Nuke all (remove all virtual switches except default)**CURRENTLY IN TESTING**"; ipOnly = $false; nukeAll = $true }
+}
+
 # Prompt for mode
 Write-Host "Select mode:"
-Write-Host "1. Normal (create switch and adapters, then IP)"
-Write-Host "2. IP only (skip creation, only assign IPs)"
-Write-Host "3. Nuke all (remove all virtual switches except default)**CURRENTLY IN TESTING**"
+foreach ($key in $validModes.Keys | Sort-Object) {
+    Write-Host "$key. $($validModes[$key].description)"
+}
 
 # Validate mode choice input
 do {
     $modeChoice = Read-Host 'Enter choice (1, 2, or 3, press Enter for Normal):'
-    $isValidMode = ([string]::IsNullOrWhiteSpace($modeChoice) -or $modeChoice -eq "1" -or $modeChoice -eq "2" -or $modeChoice -eq "3")
+    $isValidMode = ([string]::IsNullOrWhiteSpace($modeChoice) -or $validModes.ContainsKey($modeChoice))
     if (!$isValidMode) {
         Write-Host "Invalid choice. Please enter 1, 2, 3, or press Enter for Normal." -ForegroundColor Red
     }
 } while (!$isValidMode)
 
-if ($modeChoice -eq "2") {
-    $ipOnly = $true
-    $nukeAll = $false
-} elseif ($modeChoice -eq "3") {
-    $ipOnly = $false
-    $nukeAll = $true
+if ([string]::IsNullOrWhiteSpace($modeChoice)) {
+    $selectedMode = $validModes["1"]  # Default to Normal
 } else {
-    $ipOnly = $false
-    $nukeAll = $false
+    $selectedMode = $validModes[$modeChoice]
 }
+
+$ipOnly = $selectedMode.ipOnly
+$nukeAll = $selectedMode.nukeAll
 
 # Handle nuke all mode
 if ($nukeAll) {
@@ -443,18 +497,40 @@ if (!$ipOnly) {
 }
 
 # Prompt for IP octets dynamically based on VLAN set configuration
-$ipOctets = @{}
-foreach ($promptName in $ipPrompts) {
-    $defaultValue = $ipDefaults[$promptName]
-    if ($defaultValue) {
-        $promptText = "Enter the $promptName octet for IP addresses (press Enter for default: $defaultValue)"
-        do {
-            $userInput = Read-Host $promptText
-            $isValidOctet = $false
-            if ([string]::IsNullOrWhiteSpace($userInput)) {
-                $isValidOctet = $true
-                $ipOctets[$promptName] = $defaultValue
-            } else {
+$allIPsValid = $false
+
+do {
+    $ipOctets = @{}
+    foreach ($promptName in $ipPrompts) {
+        $defaultValue = $ipDefaults.$promptName
+        if ($defaultValue) {
+            $promptText = "Enter the $promptName octet for IP addresses (subnet: $subnetMask, press Enter for default: $defaultValue)"
+            do {
+                $userInput = Read-Host $promptText
+                $isValidOctet = $false
+                if ([string]::IsNullOrWhiteSpace($userInput)) {
+                    $isValidOctet = $true
+                    $ipOctets[$promptName] = $defaultValue
+                } else {
+                    try {
+                        $num = [int]$userInput
+                        if ($num -ge 0 -and $num -le 255) {
+                            $isValidOctet = $true
+                            $ipOctets[$promptName] = $userInput
+                        }
+                    } catch {
+                        $isValidOctet = $false
+                    }
+                }
+                if (!$isValidOctet) {
+                    Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
+                }
+            } while (!$isValidOctet)
+        } else {
+            $promptText = "Enter the $promptName octet for IP addresses (subnet: $subnetMask)"
+            do {
+                $userInput = Read-Host $promptText
+                $isValidOctet = $false
                 try {
                     $num = [int]$userInput
                     if ($num -ge 0 -and $num -le 255) {
@@ -464,31 +540,66 @@ foreach ($promptName in $ipPrompts) {
                 } catch {
                     $isValidOctet = $false
                 }
-            }
-            if (!$isValidOctet) {
-                Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
-            }
-        } while (!$isValidOctet)
-    } else {
-        $promptText = "Enter the $promptName octet for IP addresses"
-        do {
-            $userInput = Read-Host $promptText
-            $isValidOctet = $false
-            try {
-                $num = [int]$userInput
-                if ($num -ge 0 -and $num -le 255) {
-                    $isValidOctet = $true
-                    $ipOctets[$promptName] = $userInput
+                if (!$isValidOctet) {
+                    Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
                 }
-            } catch {
-                $isValidOctet = $false
-            }
-            if (!$isValidOctet) {
-                Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
-            }
-        } while (!$isValidOctet)
+            } while (!$isValidOctet)
+        }
     }
-}
+
+    # Validate all assembled IP addresses against subnet
+    Write-Host "Validating IP addresses against subnet $subnetMask..." -ForegroundColor Yellow
+
+    $validationResults = @()
+    $allIPsValid = $true
+
+    foreach ($vlan in $vlans) {
+        # Build IP address from template
+        $ip = $ipBase
+        $ip = $ip -replace '\{vlan\}', $vlan.VlanId
+        foreach ($octetName in $ipOctets.Keys) {
+            $ip = $ip -replace "`{$octetName`}", $ipOctets[$octetName]
+        }
+        
+        # Validate IP against subnet
+        $validation = Test-IPAgainstSubnet -ipAddress $ip -subnetMask $subnetMask
+        
+        $result = @{
+            VLAN = $vlan
+            IP = $ip
+            IsValid = $validation.IsValid
+            Network = $validation.NetworkAddress
+            Broadcast = $validation.BroadcastAddress
+        }
+        $validationResults += $result
+        
+        if (!$validation.IsValid) {
+            $allIPsValid = $false
+        }
+    }
+
+    # Display validation results
+    if (!$allIPsValid) {
+        Write-Host "Invalid IP configuration for $subnetMask subnet:" -ForegroundColor Red
+        Write-Host ""
+        
+        foreach ($result in $validationResults) {
+            $status = if ($result.IsValid) { "✅" } else { "❌" }
+            $message = if ($result.IsValid) { "Valid" } else { "Invalid (not in $($result.Network) network)" }
+            Write-Host "$status $($result.IP) - $message"
+        }
+        
+        Write-Host ""
+        Write-Host "Please re-enter octet values." -ForegroundColor Yellow
+    } else {
+        Write-Host "All IP addresses are valid for $subnetMask subnet." -ForegroundColor Green
+        foreach ($result in $validationResults) {
+            Write-Host "✅ $($result.IP) - Valid"
+        }
+        Write-Host ""
+    }
+
+} while (!$allIPsValid)
 
 if (!$ipOnly) {
     # Wait 10 seconds after last adapter creation
@@ -556,5 +667,24 @@ foreach ($vlan in $vlans) {
     }
 }
 
-Write-Host "Script completed."
+# Configuration Summary
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                           CONFIGURATION SUMMARY                           ║" -ForegroundColor Cyan
+Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+
+if (!$ipOnly) {
+    Write-Host "Selected NIC: $selectedNic" -ForegroundColor White
+}
+Write-Host "Subnet: $subnetMask" -ForegroundColor White
+Write-Host ""
+Write-Host "Configured VLANs:" -ForegroundColor White
+
+foreach ($result in $validationResults) {
+    Write-Host "  VLAN $($result.VLAN.VlanId) ($($result.VLAN.Name)): $($result.IP) - Broadcast: $($result.Broadcast)" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "Script completed successfully." -ForegroundColor Green
 

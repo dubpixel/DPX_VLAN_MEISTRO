@@ -1,7 +1,7 @@
 # Agentic Prompts
 
 ## Project: DPX_VLAN_MEISTRO
-## Version: 1.87
+## Version: 1.91
 
 ### File Information
 **File:** vlan_mesitro.powershell
@@ -126,3 +126,15 @@
 
 **User prompt:** [request to fix IP prompt default values not displaying] grok is a dummy and didnt do its job
 **→ Solution:** Fixed IP prompt default values not displaying by changing `$ipDefaults[$promptName]` to `$ipDefaults.$promptName` to properly access PSCustomObject properties from JSON data. Updated version to 1.87 and ASCII art title accordingly.
+
+**User prompt:** yeah i think what we have is fine so lets mark that completed
+**→ Solution:** Marked TODO item #5 "Add progress indicators for long-running operations" as COMPLETED since the script already has comprehensive progress indicators (Start-Countdown function with dots, descriptive messages, validation feedback with checkmarks/X marks, retry counters, etc.). Updated version from 1.87 to 1.88 and ASCII art title accordingly.
+
+**User prompt:** 7 is dum delete it and re number
+**→ Solution:** Removed TODO item #7 "Consider adding more facility VLAN configurations to JSON" and renumbered remaining TODO items (8→7, 9→8, 10→9). Updated version from 1.88 to 1.89 and ASCII art title accordingly.
+
+**User prompt:** lets prompt the user for the delay variable , but default should be ten
+**→ Solution:** Added user prompt for delay timing with default of 10 seconds, including input validation (non-negative integers only) and fallback to 10 if invalid input. Marked TODO item #4 as COMPLETED. Updated version from 1.89 to 1.90 and ASCII art title accordingly.
+
+**User prompt:** ok i need a warning on that tho. like - change at own risk. with some scary shit like skulls or something
+**→ Solution:** Added scary warning box for custom delay settings with skulls (💀) and detailed risk warnings (Hyper-V operation failures, network adapter binding issues, incomplete VLAN configurations, system instability). Warning only appears when delay is changed from default 10 seconds, includes cancel option with Ctrl+C. Updated version from 1.90 to 1.91 and ASCII art title accordingly.

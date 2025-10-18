@@ -26,7 +26,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.87
+# VERSION: 1.91
 # ================================================================================
 #
 # [File-specific information]
@@ -40,15 +40,33 @@
 # 1. Test "nuke all" feature thoroughly on Hyper-V host with real network adapters
 # 2. Test actual network connectivity and VLAN functionality with physical network
 # 3. COMPLETED: Add input validation for IP octets and VLAN selections
-# 4. Consider making delay timing configurable via command line parameter
-# 5. Add progress indicators for long-running operations
+# 4. COMPLETED: Consider making delay timing configurable via command line parameter
+# 5. COMPLETED: Add progress indicators for long-running operations
 # 6. Add logging capabilities for troubleshooting and audit trails
-# 7. Consider adding more facility VLAN configurations to JSON
-# 8. Add dry-run mode for testing without making actual changes
-# 9. Add backup/restore functionality for existing network configurations
-# 10. Consider adding GUI interface using Windows Forms or WPF - i was thining python OG
+# 7. Add dry-run mode for testing without making actual changes
+# 8. Add backup/restore functionality for existing network configurations
+# 9. Consider adding GUI interface using Windows Forms or WPF - i was thining python OG
 #
 
+#
+# CHANGE LOG:
+# yeah i think what we have is fine so lets mark that completed
+# → Marked TODO item #5 "Add progress indicators for long-running operations" as COMPLETED
+# → Updated version from 1.87 to 1.88
+# 7 is dum delete it and re number
+# → Removed TODO item #7 "Consider adding more facility VLAN configurations to JSON"
+# → Renumbered remaining TODO items (8→7, 9→8, 10→9)
+# → Updated version from 1.88 to 1.89
+# lets prompt the user for the delay variable , but default should be ten
+# → Added user prompt for delay timing with default of 10 seconds
+# → Includes input validation (non-negative integers only)
+# → Marked TODO item #4 as COMPLETED
+# → Updated version from 1.89 to 1.90
+# ok i need a warning on that tho. like  - change at own risk. with some scary shit like skulls or something
+# → Added scary warning box for custom delay settings with skulls and risk warnings
+# → Only shows when delay is changed from default 10 seconds
+# → Includes detailed risk explanations and cancel option
+# → Updated version from 1.90 to 1.91
 #
 # ================================================================================
 ################################################################################
@@ -85,7 +103,7 @@ Write-Host "║                           ██║  ██║██╔═══
 Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                           ║" -ForegroundColor Cyan
 Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                           ║" -ForegroundColor Cyan
 Write-Host "║                                                                              ║" -ForegroundColor Cyan
-Write-Host "║                             VLAN MEISTRO v1.87                               ║" -ForegroundColor Yellow
+Write-Host "║                             VLAN MEISTRO v1.91                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
@@ -115,7 +133,48 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
-$delay =  10 # Delay in seconds between commands
+# Prompt for delay timing
+$delayInput = Read-Host "Enter delay between operations in seconds (press Enter for default: 10)"
+if ([string]::IsNullOrWhiteSpace($delayInput)) {
+    $delay = 10
+} else {
+    try {
+        $delay = [int]$delayInput
+        if ($delay -lt 0) {
+            Write-Host "Delay cannot be negative, using default of 10 seconds." -ForegroundColor Yellow
+            $delay = 10
+        }
+    } catch {
+        Write-Host "Invalid delay value, using default of 10 seconds." -ForegroundColor Yellow
+        $delay = 10
+    }
+}
+
+# Warning about delay timing
+if ($delay -ne 10) {
+    Write-Host ""
+    Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "║                              ⚠️  WARNING ⚠️                                 ║" -ForegroundColor Red
+    Write-Host "║                                                                              ║" -ForegroundColor Red
+    Write-Host "║  💀 CUSTOM DELAY SETTING DETECTED - CHANGE AT YOUR OWN RISK! 💀              ║" -ForegroundColor Red
+    Write-Host "║                                                                              ║" -ForegroundColor Red
+    Write-Host "║  You have set delay to $delay seconds (default is 10).                         ║" -ForegroundColor Yellow
+    Write-Host "║                                                                              ║" -ForegroundColor Red
+    Write-Host "║  ⚠️  Setting delay too low may cause:                                       ║" -ForegroundColor Yellow
+    Write-Host "║     • Hyper-V operations to fail                                            ║" -ForegroundColor White
+    Write-Host "║     • Network adapter binding issues                                        ║" -ForegroundColor White
+    Write-Host "║     • Incomplete VLAN configurations                                        ║" -ForegroundColor White
+    Write-Host "║     • System instability                                                    ║" -ForegroundColor White
+    Write-Host "║                                                                              ║" -ForegroundColor Red
+    Write-Host "║  💀 Only change if you know what you're doing! 💀                           ║" -ForegroundColor Red
+    Write-Host "║                                                                              ║" -ForegroundColor Red
+    Write-Host "║  Press Ctrl+C now to cancel if unsure.                                      ║" -ForegroundColor Green
+    Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host ""
+    Read-Host "Press Enter to continue with custom delay, or Ctrl+C to cancel"
+}
+
+Write-Host "Using delay of $delay seconds between operations."
 
 # Function to show countdown during delays
 function Start-Countdown {
@@ -670,7 +729,7 @@ foreach ($vlan in $vlans) {
 # Configuration Summary
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                           CONFIGURATION SUMMARY                           ║" -ForegroundColor Cyan
+Write-Host "║                           CONFIGURATION SUMMARY                              ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 

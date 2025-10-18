@@ -1,7 +1,7 @@
 # Agentic Prompts
 
 ## Project: DPX_VLAN_MEISTRO
-## Version: 1.91
+## Version: 1.92
 
 ### File Information
 **File:** vlan_mesitro.powershell
@@ -138,3 +138,9 @@
 
 **User prompt:** ok i need a warning on that tho. like - change at own risk. with some scary shit like skulls or something
 **→ Solution:** Added scary warning box for custom delay settings with skulls (💀) and detailed risk warnings (Hyper-V operation failures, network adapter binding issues, incomplete VLAN configurations, system instability). Warning only appears when delay is changed from default 10 seconds, includes cancel option with Ctrl+C. Updated version from 1.90 to 1.91 and ASCII art title accordingly.
+
+**User prompt:** ok great - i tested the nuke all. it mostly worked - I thnk that when there are two duplicate named virtual switches , you dont need to go thru the delete process twice.
+**→ Solution:** Fixed nuke all mode to process unique switch names only once instead of trying to remove duplicate-named switches multiple times. Changed from iterating through switch objects to collecting unique switch names first using Select-Object -ExpandProperty Name -Unique. Prevents "Hyper-V was unable to find a virtual switch" errors when multiple switches have same name. Updated version from 1.91 to 1.92.
+
+**User prompt:** re2 - the current ascii ends with VLAN MEISTRO v1.92 and Hyper-V Network Configuration Tool
+**→ Solution:** Added Clear-Host between ASCII splash and warning for cleaner log output. Added mirrored title lines at top of warning box for visual continuity. Changed warning box top border to use box-drawing character ╠ for seamless connection. Updated version from 1.92 to 1.93.

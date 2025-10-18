@@ -1,7 +1,7 @@
 # Agentic Prompts
 
 ## Project: DPX_VLAN_MEISTRO
-## Version: 1.81
+## Version: 1.82
 
 ### File Information
 **File:** vlan_mesitro.powershell
@@ -114,3 +114,6 @@
 
 **User prompt:** lets have you update the ai instructions, also increment version., you are getting pretty lazy about incrementing version. lets be sure to increment .01 each time you change something please. can you add that to the directives?
 **→ Solution:** Added version increment requirement (0.01) to AI directives and incremented version from 1.8 to 1.81.
+
+**User prompt:** next task - wake word "Elon Musk Is Crazy" 1) there is no current funciton for definining subnet in a facility. we need to add this. 2) id like to see something we can set in the json file. either explicity as 255.254.0.0 or something or as / notation. ideally either or... 3) lets discuss what this formatting looks like before continuing 4) lets confirm your plan before we move forward
+**→ Solution:** Added configurable subnet support: updated vlan_sets.json with "subnet" field for each VLAN set (defaulting to "255.255.255.0"); added Convert-CidrToSubnetMask function; updated script to load and process subnet from JSON (converting CIDR to mask if needed); modified netsh command to use configurable subnet mask; incremented version to 1.82.

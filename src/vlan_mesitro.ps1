@@ -26,7 +26,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.91
+# VERSION: 1.93
 # ================================================================================
 #
 # [File-specific information]
@@ -63,10 +63,20 @@
 # → Marked TODO item #4 as COMPLETED
 # → Updated version from 1.89 to 1.90
 # ok i need a warning on that tho. like  - change at own risk. with some scary shit like skulls or something
-# → Added scary warning box for custom delay settings with skulls and risk warnings
+# → Added scary warning box for custom delay settings with skulls (💀) and detailed risk warnings
 # → Only shows when delay is changed from default 10 seconds
 # → Includes detailed risk explanations and cancel option
 # → Updated version from 1.90 to 1.91
+# ok great - i tested the nuke all. it mostly worked - I thnk that when there are two duplicate named virtual switches , you dont need to go thru the delete process twice.
+# → Fixed nuke all mode to process unique switch names only once instead of trying to remove duplicate-named switches multiple times
+# → Changed from iterating through switch objects to collecting unique switch names first
+# → Prevents "Hyper-V was unable to find a virtual switch" errors when multiple switches have same name
+# → Updated version from 1.91 to 1.92
+# re2 - the current ascii ends with VLAN MEISTRO v1.92 and Hyper-V Network Configuration Tool
+# → Added Clear-Host between ASCII splash and warning for cleaner log output
+# → Added mirrored title lines at top of warning box for visual continuity
+# → Changed warning box top border to use box-drawing character ╠ for seamless connection
+# → Updated version from 1.92 to 1.93
 #
 # ================================================================================
 ################################################################################
@@ -103,13 +113,18 @@ Write-Host "║                           ██║  ██║██╔═══
 Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                           ║" -ForegroundColor Cyan
 Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                           ║" -ForegroundColor Cyan
 Write-Host "║                                                                              ║" -ForegroundColor Cyan
-Write-Host "║                             VLAN MEISTRO v1.91                               ║" -ForegroundColor Yellow
+Write-Host "║                             VLAN MEISTRO v1.93                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
+Clear-Host
+
 # Warning Message
-Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║                             VLAN MEISTRO v1.93                               ║" -ForegroundColor Yellow
+Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
+Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Red
 Write-Host "║                              ⚠️  WARNING ⚠️                                 ║" -ForegroundColor Red
 Write-Host "║                                                                              ║" -ForegroundColor Red
 Write-Host "║  This tool will MODIFY your network configuration!                           ║" -ForegroundColor Yellow
@@ -156,19 +171,20 @@ if ($delay -ne 10) {
     Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
     Write-Host "║                              ⚠️  WARNING ⚠️                                 ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  💀 CUSTOM DELAY SETTING DETECTED - CHANGE AT YOUR OWN RISK! 💀              ║" -ForegroundColor Red
+    Write-Host "║  💀 CUSTOM DELAY SETTING DETECTED - CHANGE AT YOUR OWN RISK! 💀             ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  You have set delay to $delay seconds (default is 10).                         ║" -ForegroundColor Yellow
+    Write-Host "║  You have set delay to $delay seconds (default is 10).                       ║" -ForegroundColor Yellow
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  ⚠️  Setting delay too low may cause:                                       ║" -ForegroundColor Yellow
-    Write-Host "║     • Hyper-V operations to fail                                            ║" -ForegroundColor White
-    Write-Host "║     • Network adapter binding issues                                        ║" -ForegroundColor White
-    Write-Host "║     • Incomplete VLAN configurations                                        ║" -ForegroundColor White
-    Write-Host "║     • System instability                                                    ║" -ForegroundColor White
+    Write-Host "║  ⚠️ Setting delay too low may cause:                                        ║" -ForegroundColor Yellow
+    Write-Host "║     • Hyper-V operations to fail                                             ║" -ForegroundColor White
+    Write-Host "║     • Network adapter binding issues                                         ║" -ForegroundColor White
+    Write-Host "║     • Incomplete VLAN configurations                                         ║" -ForegroundColor White
+    Write-Host "║     • System instability                                                     ║" -ForegroundColor White
+    Write-Host "║     • Besides the fact it's the WHOLE reason we wrote this..derp.            ║" -ForegroundColor White
     Write-Host "║                                                                              ║" -ForegroundColor Red
     Write-Host "║  💀 Only change if you know what you're doing! 💀                           ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  Press Ctrl+C now to cancel if unsure.                                      ║" -ForegroundColor Green
+    Write-Host "║  Press Ctrl+C now to cancel if unsure.                                       ║" -ForegroundColor Green
     Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
     Write-Host ""
     Read-Host "Press Enter to continue with custom delay, or Ctrl+C to cancel"
@@ -453,25 +469,26 @@ if ($nukeAll) {
         exit
     }
 
-    # Get all virtual switches
+    # Get unique virtual switch names (excluding default/built-in switches)
     $allSwitches = Get-VMSwitch
-    foreach ($switch in $allSwitches) {
-        # Skip default/built-in switches (typically named things like "Default Switch" or starting with certain patterns)
-        if ($switch.Name -notlike "*Default*" -and $switch.Name -notlike "vEthernet*" -and $switch.SwitchType -ne "Internal") {
-            Write-Host "Removing switch '$($switch.Name)' and all its adapters..."
+    $switchesToRemove = $allSwitches | Where-Object { 
+        $_.Name -notlike "*Default*" -and 
+        $_.Name -notlike "vEthernet*" -and 
+        $_.SwitchType -ne "Internal" 
+    } | Select-Object -ExpandProperty Name -Unique
+    
+    foreach ($switchName in $switchesToRemove) {
+        Write-Host "Removing switch '$switchName' and all its adapters..."
 
-            # Remove all VLAN adapters associated with this switch
-            Write-Host "Removing all adapters bound to switch '$($switch.Name)'..."
-            Get-VMNetworkAdapter -ManagementOS | Where-Object { $_.SwitchName -eq $switch.Name } | Remove-VMNetworkAdapter
-            Start-Countdown -seconds $delay
+        # Remove all VLAN adapters associated with this switch
+        Write-Host "Removing all adapters bound to switch '$switchName'..."
+        Get-VMNetworkAdapter -ManagementOS | Where-Object { $_.SwitchName -eq $switchName } | Remove-VMNetworkAdapter
+        Start-Countdown -seconds $delay
 
-            # Remove the switch
-            Write-Host "Removing switch '$($switch.Name)'..."
-            Remove-VMSwitch -Name $switch.Name -Force
-            Start-Countdown -seconds $delay
-        } else {
-            Write-Host "Skipping default/built-in switch '$($switch.Name)'"
-        }
+        # Remove the switch
+        Write-Host "Removing switch '$switchName'..."
+        Remove-VMSwitch -Name $switchName -Force
+        Start-Countdown -seconds $delay
     }
 
     Write-Host "Nuke all operation completed."

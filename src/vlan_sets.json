@@ -12,7 +12,7 @@
       "ipBase": "10.{vlan}.{third}.{fourth}",
       "ipPrompts": ["third", "fourth"],
       "ipDefaults": {"third": 13},
-      "subnet": "255.252.0.0"
+      "subnet": "255.254.0.0"
     },
     "AeonPoint": {
       "vlans": [
@@ -30,7 +30,7 @@
       "ipBase": "10.{vlan}.{third}.{fourth}",
       "ipPrompts": ["third", "fourth"],
       "ipDefaults": {"third": 3},
-      "subnet": "255.255.254.0"
+      "subnet": "255.255.252.0"
     },
     "Desert": {
       "vlans": [

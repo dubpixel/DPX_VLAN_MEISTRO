@@ -1,7 +1,7 @@
 # Agentic Prompts
 
 ## Project: DPX_VLAN_MEISTRO
-## Version: 1.82
+## Version: 1.87
 
 ### File Information
 **File:** vlan_mesitro.powershell
@@ -117,3 +117,12 @@
 
 **User prompt:** next task - wake word "Elon Musk Is Crazy" 1) there is no current funciton for definining subnet in a facility. we need to add this. 2) id like to see something we can set in the json file. either explicity as 255.254.0.0 or something or as / notation. ideally either or... 3) lets discuss what this formatting looks like before continuing 4) lets confirm your plan before we move forward
 **→ Solution:** Added configurable subnet support: updated vlan_sets.json with "subnet" field for each VLAN set (defaulting to "255.255.255.0"); added Convert-CidrToSubnetMask function; updated script to load and process subnet from JSON (converting CIDR to mask if needed); modified netsh command to use configurable subnet mask; incremented version to 1.82.
+
+**User prompt:** [refactoring request for hardcoded VLAN configurations] grok is a dummy and didnt do its job
+**→ Solution:** Refactored hardcoded VLAN configurations to be defined as variables ($hardcoded4Wall, $hardcodedAeonPoint, $hardcodedDesert) at the top of the script for better maintainability. Simplified the else block in VLAN set building to assign these pre-defined variables instead of inline definitions. Updated version to 1.83 and ASCII art title accordingly.
+
+**User prompt:** [request for subnet-aware IP validation and configuration summary] grok is a dummy and didnt do its job
+**→ Solution:** Implemented comprehensive subnet-aware IP validation that checks complete IP addresses against subnet constraints instead of dumb 0-255 octet validation. Added configuration summary at script end showing selected NIC, subnet, and all VLAN IPs with broadcast addresses. Updated IP input prompts to display subnet information for better user guidance. Added Test-IPAgainstSubnet function for proper IP/subnet validation with network/broadcast calculation. Updated version to 1.86 and ASCII art title accordingly.
+
+**User prompt:** [request to fix IP prompt default values not displaying] grok is a dummy and didnt do its job
+**→ Solution:** Fixed IP prompt default values not displaying by changing `$ipDefaults[$promptName]` to `$ipDefaults.$promptName` to properly access PSCustomObject properties from JSON data. Updated version to 1.87 and ASCII art title accordingly.

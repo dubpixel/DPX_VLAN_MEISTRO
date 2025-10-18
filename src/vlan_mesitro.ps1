@@ -49,34 +49,7 @@
 #
 
 #
-# CHANGE LOG:
-# yeah i think what we have is fine so lets mark that completed
-# → Marked TODO item #5 "Add progress indicators for long-running operations" as COMPLETED
-# → Updated version from 1.87 to 1.88
-# 7 is dum delete it and re number
-# → Removed TODO item #7 "Consider adding more facility VLAN configurations to JSON"
-# → Renumbered remaining TODO items (8→7, 9→8, 10→9)
-# → Updated version from 1.88 to 1.89
-# lets prompt the user for the delay variable , but default should be ten
-# → Added user prompt for delay timing with default of 10 seconds
-# → Includes input validation (non-negative integers only)
-# → Marked TODO item #4 as COMPLETED
-# → Updated version from 1.89 to 1.90
-# ok i need a warning on that tho. like  - change at own risk. with some scary shit like skulls or something
-# → Added scary warning box for custom delay settings with skulls (💀) and detailed risk warnings
-# → Only shows when delay is changed from default 10 seconds
-# → Includes detailed risk explanations and cancel option
-# → Updated version from 1.90 to 1.91
-# ok great - i tested the nuke all. it mostly worked - I thnk that when there are two duplicate named virtual switches , you dont need to go thru the delete process twice.
-# → Fixed nuke all mode to process unique switch names only once instead of trying to remove duplicate-named switches multiple times
-# → Changed from iterating through switch objects to collecting unique switch names first
-# → Prevents "Hyper-V was unable to find a virtual switch" errors when multiple switches have same name
-# → Updated version from 1.91 to 1.92
-# re2 - the current ascii ends with VLAN MEISTRO v1.92 and Hyper-V Network Configuration Tool
-# → Added Clear-Host between ASCII splash and warning for cleaner log output
-# → Added mirrored title lines at top of warning box for visual continuity
-# → Changed warning box top border to use box-drawing character ╠ for seamless connection
-# → Updated version from 1.92 to 1.93
+
 #
 # ================================================================================
 ################################################################################
@@ -104,6 +77,16 @@
 # Interactive PowerShell script to create virtual switch and VLAN adapters
 
 # ASCII Art Title
+# Function to show countdown during delays
+function Start-Countdown {
+    param([int]$seconds)
+    for ($i = 1; $i -le $seconds; $i++) {
+        Write-Host -NoNewline "."
+        Start-Sleep -Seconds 1
+    }
+    Write-Host ""
+}
+
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║                           ██████╗ ██████╗ ██╗  ██╗                           ║" -ForegroundColor Cyan
@@ -118,6 +101,8 @@ Write-Host "║                      Hyper-V Network Configuration Tool         
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
+Start-Countdown -seconds 5
+
 Clear-Host
 
 # Warning Message
@@ -125,7 +110,7 @@ Write-Host "╔═════════════════════�
 Write-Host "║                             VLAN MEISTRO v1.93                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╠══════════════════════════════════════════════════════════════════════════════╣" -ForegroundColor Red
-Write-Host "║                              ⚠️  WARNING ⚠️                                 ║" -ForegroundColor Red
+Write-Host "║                              ⚠️  WARNING ⚠️                                    ║" -ForegroundColor Red
 Write-Host "║                                                                              ║" -ForegroundColor Red
 Write-Host "║  This tool will MODIFY your network configuration!                           ║" -ForegroundColor Yellow
 Write-Host "║                                                                              ║" -ForegroundColor Red
@@ -169,20 +154,20 @@ if ([string]::IsNullOrWhiteSpace($delayInput)) {
 if ($delay -ne 10) {
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║                              ⚠️  WARNING ⚠️                                 ║" -ForegroundColor Red
+    Write-Host "║                              ⚠️  WARNING ⚠️                                    ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  💀 CUSTOM DELAY SETTING DETECTED - CHANGE AT YOUR OWN RISK! 💀             ║" -ForegroundColor Red
+    Write-Host "║  💀 CUSTOM DELAY SETTING DETECTED - CHANGE AT YOUR OWN RISK! 💀              ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  You have set delay to $delay seconds (default is 10).                       ║" -ForegroundColor Yellow
+    Write-Host "║  You have set delay to $delay seconds (default is 10).                            ║" -ForegroundColor Yellow
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  ⚠️ Setting delay too low may cause:                                        ║" -ForegroundColor Yellow
+    Write-Host "║  ⚠️ Setting delay too low may cause:                                          ║" -ForegroundColor Yellow
     Write-Host "║     • Hyper-V operations to fail                                             ║" -ForegroundColor White
     Write-Host "║     • Network adapter binding issues                                         ║" -ForegroundColor White
     Write-Host "║     • Incomplete VLAN configurations                                         ║" -ForegroundColor White
     Write-Host "║     • System instability                                                     ║" -ForegroundColor White
     Write-Host "║     • Besides the fact it's the WHOLE reason we wrote this..derp.            ║" -ForegroundColor White
     Write-Host "║                                                                              ║" -ForegroundColor Red
-    Write-Host "║  💀 Only change if you know what you're doing! 💀                           ║" -ForegroundColor Red
+    Write-Host "║  💀 Only change if you know what you're doing! 💀                            ║" -ForegroundColor Red
     Write-Host "║                                                                              ║" -ForegroundColor Red
     Write-Host "║  Press Ctrl+C now to cancel if unsure.                                       ║" -ForegroundColor Green
     Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Red
@@ -192,15 +177,6 @@ if ($delay -ne 10) {
 
 Write-Host "Using delay of $delay seconds between operations."
 
-# Function to show countdown during delays
-function Start-Countdown {
-    param([int]$seconds)
-    for ($i = 1; $i -le $seconds; $i++) {
-        Write-Host -NoNewline "."
-        Start-Sleep -Seconds 1
-    }
-    Write-Host ""
-}
 
 # Function to convert CIDR notation to subnet mask
 function Convert-CidrToSubnetMask {

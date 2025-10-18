@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.85
+
+### Added or Changed
+- Fixed input validation logic by inlining validation checks instead of using functions to prevent function call issues
+- Simplified validation implementation for better reliability
+- Updated version to 1.85 and ASCII art title accordingly
+
+## v1.84
+
 ## v1.83
 
 ### Added or Changed

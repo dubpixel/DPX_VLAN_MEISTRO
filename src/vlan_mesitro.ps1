@@ -26,7 +26,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.83
+# VERSION: 1.85
 # ================================================================================
 #
 # [File-specific information]
@@ -39,7 +39,7 @@
 # TODO LIST:
 # 1. Test "nuke all" feature thoroughly on Hyper-V host with real network adapters
 # 2. Test actual network connectivity and VLAN functionality with physical network
-# 3. Add input validation for IP octets and VLAN selections
+# 3. COMPLETED: Add input validation for IP octets and VLAN selections
 # 4. Consider making delay timing configurable via command line parameter
 # 5. Add progress indicators for long-running operations
 # 6. Add logging capabilities for troubleshooting and audit trails
@@ -85,7 +85,7 @@ Write-Host "║                           ██║  ██║██╔═══
 Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                           ║" -ForegroundColor Cyan
 Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                           ║" -ForegroundColor Cyan
 Write-Host "║                                                                              ║" -ForegroundColor Cyan
-Write-Host "║                             VLAN MEISTRO v1.83                               ║" -ForegroundColor Yellow
+Write-Host "║                             VLAN MEISTRO v1.85                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
@@ -133,6 +133,12 @@ function Convert-CidrToSubnetMask {
     $mask = [uint32]::MaxValue -shl (32 - $cidr)
     $bytes = [BitConverter]::GetBytes([IPAddress]::NetworkToHostOrder($mask))
     return "{0}.{1}.{2}.{3}" -f $bytes[0], $bytes[1], $bytes[2], $bytes[3]
+}
+
+# Input validation functions
+function Test-ModeChoice {
+    param([string]$input)
+    return ([string]::IsNullOrWhiteSpace($input) -or $input -eq "1" -or $input -eq "2" -or $input -eq "3")
 }
 
 # Define hardcoded VLAN configurations (used as fallbacks)
@@ -242,7 +248,25 @@ for ($i = 0; $i -lt $vlanSetNames.Count; $i++) {
     Write-Host ('{0}. {1} ({2} VLANs)' -f ($i+1), $setName, $vlanCount)
 }
 
-$vlanChoice = Read-Host "Enter choice (1-$($vlanSetNames.Count)):"
+# Validate VLAN choice input
+do {
+    $vlanChoice = Read-Host "Enter choice (1-$($vlanSetNames.Count)):"
+    $isValidChoice = $false
+    if (![string]::IsNullOrWhiteSpace($vlanChoice)) {
+        try {
+            $num = [int]$vlanChoice
+            if ($num -ge 1 -and $num -le $vlanSetNames.Count) {
+                $isValidChoice = $true
+            }
+        } catch {
+            $isValidChoice = $false
+        }
+    }
+    if (!$isValidChoice) {
+        Write-Host "Invalid choice. Please enter a number between 1 and $($vlanSetNames.Count)." -ForegroundColor Red
+    }
+} while (!$isValidChoice)
+
 $choiceIndex = [int]$vlanChoice - 1
 
 if ($choiceIndex -ge 0 -and $choiceIndex -lt $vlanSetNames.Count) {
@@ -284,7 +308,16 @@ Write-Host "Select mode:"
 Write-Host "1. Normal (create switch and adapters, then IP)"
 Write-Host "2. IP only (skip creation, only assign IPs)"
 Write-Host "3. Nuke all (remove all virtual switches except default)**CURRENTLY IN TESTING**"
-$modeChoice = Read-Host 'Enter choice (1, 2, or 3, press Enter for Normal)'
+
+# Validate mode choice input
+do {
+    $modeChoice = Read-Host 'Enter choice (1, 2, or 3, press Enter for Normal):'
+    $isValidMode = ([string]::IsNullOrWhiteSpace($modeChoice) -or $modeChoice -eq "1" -or $modeChoice -eq "2" -or $modeChoice -eq "3")
+    if (!$isValidMode) {
+        Write-Host "Invalid choice. Please enter 1, 2, 3, or press Enter for Normal." -ForegroundColor Red
+    }
+} while (!$isValidMode)
+
 if ($modeChoice -eq "2") {
     $ipOnly = $true
     $nukeAll = $false
@@ -341,8 +374,25 @@ if (!$ipOnly) {
         Write-Host "$($i+1). $($adapters[$i].Name) - $($adapters[$i].InterfaceDescription) [Status: $status]"
     }
 
-    # Prompt for selection
-    $choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
+    # Validate NIC choice input
+    do {
+        $choice = Read-Host "Select the NIC by number (1-$($adapters.Count))"
+        $isValidNic = $false
+        if (![string]::IsNullOrWhiteSpace($choice)) {
+            try {
+                $num = [int]$choice
+                if ($num -ge 1 -and $num -le $adapters.Count) {
+                    $isValidNic = $true
+                }
+            } catch {
+                $isValidNic = $false
+            }
+        }
+        if (!$isValidNic) {
+            Write-Host "Invalid choice. Please enter a number between 1 and $($adapters.Count)." -ForegroundColor Red
+        }
+    } while (!$isValidNic)
+
     $selectedNic = $adapters[$choice-1].Name
     Write-Host "Selected NIC: $selectedNic"
 
@@ -398,15 +448,45 @@ foreach ($promptName in $ipPrompts) {
     $defaultValue = $ipDefaults[$promptName]
     if ($defaultValue) {
         $promptText = "Enter the $promptName octet for IP addresses (press Enter for default: $defaultValue)"
-        $userInput = Read-Host $promptText
-        if ([string]::IsNullOrWhiteSpace($userInput)) {
-            $ipOctets[$promptName] = $defaultValue
-        } else {
-            $ipOctets[$promptName] = $userInput
-        }
+        do {
+            $userInput = Read-Host $promptText
+            $isValidOctet = $false
+            if ([string]::IsNullOrWhiteSpace($userInput)) {
+                $isValidOctet = $true
+                $ipOctets[$promptName] = $defaultValue
+            } else {
+                try {
+                    $num = [int]$userInput
+                    if ($num -ge 0 -and $num -le 255) {
+                        $isValidOctet = $true
+                        $ipOctets[$promptName] = $userInput
+                    }
+                } catch {
+                    $isValidOctet = $false
+                }
+            }
+            if (!$isValidOctet) {
+                Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
+            }
+        } while (!$isValidOctet)
     } else {
         $promptText = "Enter the $promptName octet for IP addresses"
-        $ipOctets[$promptName] = Read-Host $promptText
+        do {
+            $userInput = Read-Host $promptText
+            $isValidOctet = $false
+            try {
+                $num = [int]$userInput
+                if ($num -ge 0 -and $num -le 255) {
+                    $isValidOctet = $true
+                    $ipOctets[$promptName] = $userInput
+                }
+            } catch {
+                $isValidOctet = $false
+            }
+            if (!$isValidOctet) {
+                Write-Host "Invalid octet. Please enter a number between 0 and 255." -ForegroundColor Red
+            }
+        } while (!$isValidOctet)
     }
 }
 

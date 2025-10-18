@@ -26,7 +26,7 @@
 #
 # ================================================================================
 # PROJECT: DPX_VLAN_MEISTRO
-# VERSION: 1.82
+# VERSION: 1.83
 # ================================================================================
 #
 # [File-specific information]
@@ -73,7 +73,7 @@ Write-Host "║                           ██║  ██║██╔═══
 Write-Host "║                           ██████╔╝██║     ██╔╝ ██╗                           ║" -ForegroundColor Cyan
 Write-Host "║                           ╚═════╝ ╚═╝     ╚═╝  ╚═╝                           ║" -ForegroundColor Cyan
 Write-Host "║                                                                              ║" -ForegroundColor Cyan
-Write-Host "║                             VLAN MEISTRO v1.82                               ║" -ForegroundColor Yellow
+Write-Host "║                             VLAN MEISTRO v1.83                               ║" -ForegroundColor Yellow
 Write-Host "║                      Hyper-V Network Configuration Tool                      ║" -ForegroundColor Yellow
 Write-Host "╚══════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
@@ -123,61 +123,9 @@ function Convert-CidrToSubnetMask {
     return "{0}.{1}.{2}.{3}" -f $bytes[0], $bytes[1], $bytes[2], $bytes[3]
 }
 
-# Load VLAN sets from external JSON file
-$vlanConfigPath = Join-Path $PSScriptRoot "vlan_sets.json"
-if (Test-Path $vlanConfigPath) {
-    try {
-        $vlanConfig = Get-Content $vlanConfigPath -Raw | ConvertFrom-Json
-        $vlans4Wall = $vlanConfig.vlanSets."4Wall"
-        $vlansAeonPoint = $vlanConfig.vlanSets.AeonPoint
-        $vlansDesert = $vlanConfig.vlanSets.Desert
-        Write-Host "Loaded VLAN configurations from $vlanConfigPath"
-    }
-    catch {
-        Write-Host "Error loading VLAN configuration file: $($_.Exception.Message)"
-        Write-Host "Falling back to built-in configurations..."
-        # Fallback to hardcoded configurations if JSON fails to load
-        $vlans4Wall = @(
-            @{Name="196_Engineering"; VlanId=196},
-            @{Name="200_d3Net"; VlanId=200},
-            @{Name="210_sACN"; VlanId=210},
-            @{Name="214_10gMedia"; VlanId=214},
-            @{Name="216_10gMedia2"; VlanId=216},
-            @{Name="206_LED"; VlanId=206}
-        )
-        $vlansAeonPoint = @(
-            @{Name="10_Server_A"; VlanId=10},
-            @{Name="20_Server_B"; VlanId=20},
-            @{Name="30_Server_C"; VlanId=30},
-            @{Name="40_Server_D"; VlanId=40},
-            @{Name="50_System"; VlanId=50},
-            @{Name="60_Dante_Primary"; VlanId=60},
-            @{Name="65_Dante_Secondary"; VlanId=65},
-            @{Name="70_KVM"; VlanId=70},
-            @{Name="80_NDI"; VlanId=80},
-            @{Name="90_Internet"; VlanId=90}
-        )
-        $vlansDesert = @(
-            @{Name="101_Server_A"; VlanId=101},
-            @{Name="102_Server_B"; VlanId=102},
-            @{Name="103_Server_C"; VlanId=103},
-            @{Name="104_Server_D"; VlanId=104},
-            @{Name="105_System"; VlanId=105},
-            @{Name="106_Dante_Primary"; VlanId=106},
-            @{Name="116_Dante_Secondary"; VlanId=116},
-            @{Name="107_KVM"; VlanId=107},
-            @{Name="108_NDI"; VlanId=108},
-            @{Name="109_Internet"; VlanId=109},
-            @{Name="110_Omneo"; VlanId=110},
-            @{Name="111_LED"; VlanId=111},
-            @{Name="112_MERGE"; VlanId=112}
-        )
-    }
-} else {
-    Write-Host "Warning: VLAN configuration file not found at $vlanConfigPath"
-    Write-Host "Using built-in configurations..."
-    # Built-in fallback configurations
-    $vlans4Wall = @(
+# Define hardcoded VLAN configurations (used as fallbacks)
+$hardcoded4Wall = @{
+    vlans = @(
         @{Name="196_Engineering"; VlanId=196},
         @{Name="200_d3Net"; VlanId=200},
         @{Name="210_sACN"; VlanId=210},
@@ -185,7 +133,13 @@ if (Test-Path $vlanConfigPath) {
         @{Name="216_10gMedia2"; VlanId=216},
         @{Name="206_LED"; VlanId=206}
     )
-    $vlansAeonPoint = @(
+    ipBase = "10.{vlan}.{third}.{fourth}"
+    ipPrompts = @("third", "fourth")
+    ipDefaults = @{third=13}
+    subnet = "255.254.0.0"
+}
+$hardcodedAeonPoint = @{
+    vlans = @(
         @{Name="10_Server_A"; VlanId=10},
         @{Name="20_Server_B"; VlanId=20},
         @{Name="30_Server_C"; VlanId=30},
@@ -197,7 +151,13 @@ if (Test-Path $vlanConfigPath) {
         @{Name="80_NDI"; VlanId=80},
         @{Name="90_Internet"; VlanId=90}
     )
-    $vlansDesert = @(
+    ipBase = "10.{vlan}.{third}.{fourth}"
+    ipPrompts = @("third", "fourth")
+    ipDefaults = @{third=13}
+    subnet = "255.255.254.0"
+}
+$hardcodedDesert = @{
+    vlans = @(
         @{Name="101_Server_A"; VlanId=101},
         @{Name="102_Server_B"; VlanId=102},
         @{Name="103_Server_C"; VlanId=103},
@@ -212,6 +172,29 @@ if (Test-Path $vlanConfigPath) {
         @{Name="111_LED"; VlanId=111},
         @{Name="112_MERGE"; VlanId=112}
     )
+    ipBase = "192.168.{vlan}.{fourth}"
+    ipPrompts = @("fourth")
+    ipDefaults = @{}
+    subnet = "255.255.255.0"
+}
+
+# Load VLAN sets from external JSON file
+$vlanConfigPath = Join-Path $PSScriptRoot "vlan_sets.json"
+if (Test-Path $vlanConfigPath) {
+    try {
+        $vlanConfig = Get-Content $vlanConfigPath -Raw | ConvertFrom-Json
+        $vlans4Wall = $vlanConfig.vlanSets."4Wall"
+        $vlansAeonPoint = $vlanConfig.vlanSets.AeonPoint
+        $vlansDesert = $vlanConfig.vlanSets.Desert
+        Write-Host "Loaded VLAN configurations from $vlanConfigPath"
+    }
+    catch {
+        Write-Host "Error loading VLAN configuration file: $($_.Exception.Message)"
+        Write-Host "Falling back to built-in configurations..."
+    }
+} else {
+    Write-Host "Warning: VLAN configuration file not found at $vlanConfigPath"
+    Write-Host "Using built-in configurations..."
 }
 
 # Build dynamic VLAN set selection
@@ -232,60 +215,10 @@ if ($vlanConfig -and $vlanConfig.vlanSets) {
         $vlanSetNames += $setName
     }
 } else {
-    # Fallback to hardcoded sets with new structure
-    $vlanSets["4Wall"] = @{
-        vlans = @(
-            @{Name="196_Engineering"; VlanId=196},
-            @{Name="200_d3Net"; VlanId=200},
-            @{Name="210_sACN"; VlanId=210},
-            @{Name="214_10gMedia"; VlanId=214},
-            @{Name="216_10gMedia2"; VlanId=216},
-            @{Name="206_LED"; VlanId=206}
-        )
-        ipBase = "10.{vlan}.{third}.{fourth}"
-        ipPrompts = @("third", "fourth")
-        ipDefaults = @{third=13}
-        subnet = "255.254.0.0"
-    }
-    $vlanSets["AeonPoint"] = @{
-        vlans = @(
-            @{Name="10_Server_A"; VlanId=10},
-            @{Name="20_Server_B"; VlanId=20},
-            @{Name="30_Server_C"; VlanId=30},
-            @{Name="40_Server_D"; VlanId=40},
-            @{Name="50_System"; VlanId=50},
-            @{Name="60_Dante_Primary"; VlanId=60},
-            @{Name="65_Dante_Secondary"; VlanId=65},
-            @{Name="70_KVM"; VlanId=70},
-            @{Name="80_NDI"; VlanId=80},
-            @{Name="90_Internet"; VlanId=90}
-        )
-        ipBase = "10.{vlan}.{third}.{fourth}"
-        ipPrompts = @("third", "fourth")
-        ipDefaults = @{third=13}
-        subnet = "255.255.254.0"
-    }
-    $vlanSets["Desert"] = @{
-        vlans = @(
-            @{Name="101_Server_A"; VlanId=101},
-            @{Name="102_Server_B"; VlanId=102},
-            @{Name="103_Server_C"; VlanId=103},
-            @{Name="104_Server_D"; VlanId=104},
-            @{Name="105_System"; VlanId=105},
-            @{Name="106_Dante_Primary"; VlanId=106},
-            @{Name="116_Dante_Secondary"; VlanId=116},
-            @{Name="107_KVM"; VlanId=107},
-            @{Name="108_NDI"; VlanId=108},
-            @{Name="109_Internet"; VlanId=109},
-            @{Name="110_Omneo"; VlanId=110},
-            @{Name="111_LED"; VlanId=111},
-            @{Name="112_MERGE"; VlanId=112}
-        )
-        ipBase = "192.168.{vlan}.{fourth}"
-        ipPrompts = @("fourth")
-        ipDefaults = @{}
-        subnet = "255.255.255.0"
-    }
+    # Fallback to hardcoded sets
+    $vlanSets["4Wall"] = $hardcoded4Wall
+    $vlanSets["AeonPoint"] = $hardcodedAeonPoint
+    $vlanSets["Desert"] = $hardcodedDesert
     $vlanSetNames = @("4Wall", "AeonPoint", "Desert")
 }
 

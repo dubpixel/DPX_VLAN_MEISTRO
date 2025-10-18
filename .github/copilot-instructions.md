@@ -1,7 +1,7 @@
 # dubpixel Template GitHub Copilot Instructions
 
-**Version:** 1.1
-**Last Revised:** October 13, 2025
+**Version:** 1.2
+**Last Revised:** October 18, 2025
 
 ## Ground Rules for AI Assistance
 
@@ -18,6 +18,21 @@ This project includes AI-generated code assistance provided by GitHub Copilot. P
 - **ALL user prompts and AI solutions must be documented verbatim in the change log comments**
   - Format: User prompt as single line, followed by itemized solution with → bullet
 - **Maintain CHANGELOG.md with version updates and change summaries** for all code modifications
+
+### Development Discipline
+
+**MANDATORY: Incremental Development Protocol**
+- **ONE change at a time** - Never make multiple changes in a single operation
+- **Test immediately** - Verify each change works before proceeding
+- **Get approval** - Ask user to review and approve before next change
+- **Document intent** - State exactly what you're changing and why before doing it
+- **No batching** - Version bumps, changelog updates, and code changes must be separate operations
+- **If uncertain, stop and ask** - Better to be slow and correct than fast and broken
+
+**Accountability Measures:**
+- User can call out violations of this protocol
+- If protocol is broken, stop work and get explicit permission to continue
+- Actions speak louder than words - demonstrate discipline through behavior, not promises
 
 ## Project Architecture & Context
 

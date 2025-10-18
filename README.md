@@ -199,6 +199,9 @@ The script supports multiple facility types (4Wall, Aeon Point, Desert, and cust
 
 ## Configuration
 
+<details>
+<summary><strong>⚙️ Click to expand configuration guide</strong></summary>
+
 ### VLAN Sets Configuration
 
 VLAN configurations are stored in `src/vlan_sets.json`. The script automatically loads all facility configurations from this file.
@@ -261,7 +264,7 @@ The script supports both dotted decimal and CIDR notation for subnet masks:
 | Desert | `192.168.{vlan}.{fourth}` | `192.168.100.10` |
 | Custom | `172.16.{third}.{vlan}` | `172.16.5.100` |
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+</details>
 
 <!-- USAGE EXAMPLES -->
 ## Usage
@@ -292,52 +295,6 @@ At completion, the script displays:
 - Deep cleanup of existing configurations
 - Adapter binding reset and verification
 - Explicit confirmation for destructive operations
-
-```json
-{
-  "vlanSets": {
-    "YourNewFacility": {
-      "vlans": [
-        {"Name": "Server_VLAN", "VlanId": 100},
-        {"Name": "Client_VLAN", "VlanId": 200}
-      ],
-      "ipBase": "10.{vlan}.{third}.{fourth}",
-      "ipPrompts": ["third", "fourth"],
-      "ipDefaults": {"third": 10}
-    }
-  }
-}
-```
-
-**IP Configuration Explained:**
-- `ipBase`: Template for IP addresses using placeholders like `{vlan}`, `{third}`, `{fourth}`
-- `ipPrompts`: List of octets the user will be prompted to enter
-- `ipDefaults`: Default values for specific octets (optional)
-
-The script will automatically detect and offer all VLAN sets as options during selection. No code changes required!
-
-### Running the Script
-
-1. **Open PowerShell as Administrator**
-   ```powershell
-   # Right-click PowerShell and select "Run as Administrator"
-   ```
-
-2. **Navigate to the script directory**
-   ```powershell
-   cd "C:\Path\To\DPX_VLAN_MEISTRO\src"
-   ```
-
-3. **Execute the script**
-   ```powershell
-   # Option 1: Standard execution (may require execution policy change)
-   .\vlan_mesitro.ps1
-   
-   # Option 2: Bypass execution policy (recommended)
-   powershell -ExecutionPolicy Bypass -File .\vlan_mesitro.ps1
-   ```
-
-   **Note:** The script displays a comprehensive warning message about potential network disruption. Read it carefully before proceeding.
 
 ### Script Workflow
 
@@ -374,7 +331,10 @@ The script will automatically detect and offer all VLAN sets as options during s
    - Script assigns static IPs to all virtual adapters (in Normal/IP-only modes)
    - Displays progress and completion status
 
-### Example Usage Scenarios
+
+
+<details>
+<summary><strong>📋 Click to expand usage examples</strong></summary>
 
 #### **Scenario 1: Complete Setup (Normal Mode)**
 Setting up a new Hyper-V host with AeonPoint VLAN configuration:
@@ -536,13 +496,18 @@ Script completed.
 
 **Result:** Custom facility configured with fixed third octet (5) as defined in JSON.
 
+</details>
+
 ## Troubleshooting
+
+<details>
+<summary><strong>🔧 Click to expand troubleshooting guide</strong></summary>
 
 ### Common Issues and Solutions
 
 #### **"Failed while adding virtual Ethernet switch connections"**
 **Problem:** The selected network adapter is already bound to another virtual switch.
-**Solution:** 
+**Solution:**
 1. Run the script in "Nuke All" mode first to clean up existing switches
 2. Or manually remove conflicting switches using Hyper-V Manager
 3. Ensure no other virtual switches are using the selected adapter
@@ -602,7 +567,7 @@ If you encounter issues not covered here:
 2. Create a new issue with your error messages and system details
 3. Include your Windows version, Hyper-V status, and script output
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+</details>
 
 <!-- REFLECTION -->
 ## Reflection

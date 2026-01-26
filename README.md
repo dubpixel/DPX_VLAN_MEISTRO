@@ -646,7 +646,9 @@ If you encounter issues not covered here:
 - [ ] Configuration file validation
 - [ ] Automated network connectivity testing
 
+
 ### 📋 **Planned Features**
+- [ ] Export Powershell script for re-use later w/o utility
 - [ ] Backup/restore functionality for network configurations
 - [ ] Comprehensive logging and audit trails
 - [ ] Dry-run mode for testing configurations

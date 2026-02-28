@@ -1,20 +1,20 @@
 # Agentic Prompts
 
-## Project: DPX_VLAN_MEISTRO
+## Project: DPX_VLAN_MAESTRO
 ## Version: 1.92
 
 ### File Information
-**File:** vlan_mesitro.powershell
+**File:** vlan_maestro.powershell
 **Purpose:** Interactive script to create a virtual switch and VLAN network adapters on Windows Hyper-V host, with cleanup of existing configurations and robust IP assignment with delays for proper execution.
 **Dependencies:** Windows PowerShell Hyper-V module, administrative privileges.
 
 ## Development History
 
 **User prompt:** ok my dude. lets talk about some powershell. can u add your operating directives tothe top of this file as comments please to start. lets keep these comments but add the formatting etc.
-**→ Solution:** Inserted the AI operating directives header and CHANGE LOG entry at the top of `src/vlan_mesitro.powershell`, preserving the existing commented examples.
+**→ Solution:** Inserted the AI operating directives header and CHANGE LOG entry at the top of `src/vlan_maestro.powershell`, preserving the existing commented examples.
 
 **User prompt:** ok great. confirm you understand the directives by updating the comments appropriately.
-**→ Solution:** Updated the CHANGE LOG in `src/vlan_mesitro.powershell` with the new user prompt and solution entry.
+**→ Solution:** Updated the CHANGE LOG in `src/vlan_maestro.powershell` with the new user prompt and solution entry.
 
 **User prompt:** based on the code snippets write a program that runs, lists the current NICs , allows interactive selection of the one you want to select by choosing from a list. It then takes that nic, creates a new virtual switch (using that same vLanSwitch name) then you want to iterate thru adding the virtual adatpors... but slowly. - every command needs to run slowly. I thikn when u hit enter as a giant block they dont all process properly. I dont know how to add delays so the system waits etc. just want to be careful. as executing that second blockmas a block doesnt work really well even tho it appears to.
 **→ Solution:** Replaced the commented snippets with an interactive PowerShell script that lists NICs, allows selection, creates the virtual switch, and adds VLAN adapters with 5-second delays between commands for proper execution. Updated file purpose.
@@ -52,7 +52,7 @@
 **User prompt:** can you add some basic usage instructions into the readme please
 **→ Solution:** Added comprehensive usage instructions to README.md including prerequisites, installation steps, script workflow, and example usage. Updated Built With section.
 
-**User prompt:** lets move on. i need to add another concept. vlan meistro is to set the vlans of a system to a given way.  Ideally it should remove current settings and make sure that the settings applied are the only settings. also users report that the IP addesses did not get set and they remained at DHCP.
+**User prompt:** lets move on. i need to add another concept. vlan maestro is to set the vlans of a system to a given way.  Ideally it should remove current settings and make sure that the settings applied are the only settings. also users report that the IP addesses did not get set and they remained at DHCP.
 **→ Solution:** Added cleanup functionality to remove existing VLAN adapters before creating new ones, and improved IP assignment with better error handling, existing IP removal, DHCP verification, retry logic for adapter availability, and success verification. Updated version to 1.7.
 
 **User prompt:** i also think by default the changes need to be scoped to a physical intertface. only removing things set on a given physical interface, if user has selected that ohysical interface for the script to act on.
@@ -142,7 +142,7 @@
 **User prompt:** ok great - i tested the nuke all. it mostly worked - I thnk that when there are two duplicate named virtual switches , you dont need to go thru the delete process twice.
 **→ Solution:** Fixed nuke all mode to process unique switch names only once instead of trying to remove duplicate-named switches multiple times. Changed from iterating through switch objects to collecting unique switch names first using Select-Object -ExpandProperty Name -Unique. Prevents "Hyper-V was unable to find a virtual switch" errors when multiple switches have same name. Updated version from 1.91 to 1.92.
 
-**User prompt:** re2 - the current ascii ends with VLAN MEISTRO v1.92 and Hyper-V Network Configuration Tool
+**User prompt:** re2 - the current ascii ends with VLAN MAESTRO v1.92 and Hyper-V Network Configuration Tool
 **→ Solution:** Added Clear-Host between ASCII splash and warning for cleaner log output. Added mirrored title lines at top of warning box for visual continuity. Changed warning box top border to use box-drawing character ╠ for seamless connection. Updated version from 1.92 to 1.93.
 
 **User prompt:** ok. lets have a little chat. dont do annyting just listen. 
